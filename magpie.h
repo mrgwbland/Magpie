@@ -99,6 +99,8 @@ static inline Colour opponent_of(Colour colour) {
     return (colour == COLOUR_WHITE) ? COLOUR_BLACK : COLOUR_WHITE;
 }
 
+#include <stdint.h>
+
 // ---------------------------------------------------------------------------
 // Function Declarations
 // ---------------------------------------------------------------------------
@@ -117,6 +119,13 @@ bool is_square_attacked(const int brd[BOARD_SIZE], int square, Colour attacker_c
 int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move);
 int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp);
 int evaluate_board_threat(const int brd[BOARD_SIZE], Colour side);
+
+// terminal.c
+void init_terminal(void);
+void clear_terminal_history(void);
+void push_position_history(const int brd[BOARD_SIZE], Colour side, unsigned int castling);
+void update_halfmove_clock(const Move *m);
+bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score);
 
 // play.c
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m);

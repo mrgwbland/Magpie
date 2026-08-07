@@ -157,6 +157,9 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
                 if (brd[to] == PIECE_NONE) {
                     if (next_r == promo_rank) {
                         add_move(moves, &count, from, to, piece, PIECE_NONE, PIECE_QUEEN);
+                        add_move(moves, &count, from, to, piece, PIECE_NONE, PIECE_ROOK);
+                        add_move(moves, &count, from, to, piece, PIECE_NONE, PIECE_BISHOP);
+                        add_move(moves, &count, from, to, piece, PIECE_NONE, PIECE_KNIGHT);
                     } else {
                         add_move(moves, &count, from, to, piece, PIECE_NONE, PIECE_NONE);
 
@@ -183,6 +186,9 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
                     if (victim != PIECE_NONE && get_piece_colour(victim) != side_to_move) {
                         if (cap_r == promo_rank) {
                             add_move(moves, &count, from, cap_to, piece, victim, PIECE_QUEEN);
+                            add_move(moves, &count, from, cap_to, piece, victim, PIECE_ROOK);
+                            add_move(moves, &count, from, cap_to, piece, victim, PIECE_BISHOP);
+                            add_move(moves, &count, from, cap_to, piece, victim, PIECE_KNIGHT);
                         } else {
                             add_move(moves, &count, from, cap_to, piece, victim, PIECE_NONE);
                         }

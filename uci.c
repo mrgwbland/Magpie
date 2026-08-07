@@ -53,8 +53,11 @@ void apply_move_string(const char *move_str, Colour *side_to_move)
         board[to] = *side_to_move | promo_type;
     }
 
-    // Update castling rights
+    // Update castling rights, halfmove clock, and position history
+    Move m_executed = { .from = from, .to = to, .piece = piece, .captured = board[to], .promotion = (strlen(move_str) >= 5) ? PIECE_QUEEN : PIECE_NONE };
     update_castling_rights(from, to);
+    update_halfmove_clock(&m_executed);
+    push_position_history(board, *side_to_move, castling_rights);
 
     // Toggle active player
     *side_to_move = opponent_of(*side_to_move);

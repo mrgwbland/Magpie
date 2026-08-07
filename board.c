@@ -121,5 +121,8 @@ Colour setup_fen(const char *fen)
         ptr++;
     }
 
+    clear_terminal_history();
+    push_position_history(board, side_to_move, castling_rights);
+
     return side_to_move;
 }

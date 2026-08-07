@@ -12,9 +12,14 @@ static const int PST[64] = {
     0,  2,  4,  6,  6,  4,  2, 0
 };
 
-// Evaluate a move using SEE, threat mitigation, and PST positioning
+// Evaluate a move using SEE, threat mitigation, terminal check, and PST positioning
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 {
+    int term_score = 0;
+    if (is_terminal_move(brd, m, &term_score)) {
+        return term_score;
+    }
+
     Colour side = get_piece_colour(m->piece);
     int initial_threat = evaluate_board_threat(brd, side);
 
@@ -138,6 +143,8 @@ void make_engine_move(Colour *side_to_move)
         }
 
         update_castling_rights(best_move.from, best_move.to);
+        update_halfmove_clock(&best_move);
+        push_position_history(board, *side_to_move, castling_rights);
 
         char from_str[4], to_str[4];
         square_to_algebraic(best_move.from, from_str);

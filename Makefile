@@ -17,7 +17,7 @@ CFLAGS = -Wall -Wextra -Ofast -march=native -DENGINE_VERSION=\"$(VERSION)\" -DEN
 HEADERS = magpie.h
 
 # Source files
-SRCS = main.c board.c movegen.c play.c uci.c
+SRCS = main.c board.c movegen.c play.c uci.c terminal.c
 OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS:.c=.o))
 
 all: $(TARGET)

@@ -67,7 +67,7 @@ void apply_move_string(const char *move_str, Colour *side_to_move)
 void run_uci(void)
 {
     Colour side_to_move = COLOUR_WHITE;
-    char line[2048];
+    char line[32768];
 
     side_to_move = setup_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
@@ -109,14 +109,14 @@ void run_uci(void)
             const char *moves_ptr = strstr(ptr, "moves");
             if (moves_ptr) {
                 moves_ptr += 5;
-                char moves_buf[1024];
-                strncpy(moves_buf, moves_ptr, sizeof(moves_buf) - 1);
-                moves_buf[sizeof(moves_buf) - 1] = '\0';
-
-                char *token = strtok(moves_buf, " ");
-                while (token) {
-                    apply_move_string(token, &side_to_move);
-                    token = strtok(NULL, " ");
+                char *moves_buf = strdup(moves_ptr);
+                if (moves_buf) {
+                    char *token = strtok(moves_buf, " \r\n");
+                    while (token) {
+                        apply_move_string(token, &side_to_move);
+                        token = strtok(NULL, " \r\n");
+                    }
+                    free(moves_buf);
                 }
             }
         }

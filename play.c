@@ -174,15 +174,15 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 
     if (see_score >= 0) {
         // Category 1: Safe Moves (Blend SEE score and defensive threat reduction into Expected Value)
-        int ev_score = see_score + (threat_reduction > 0 ? threat_reduction : 0);
+        int ev_score = see_score + threat_reduction;
         return 10000 + ev_score * 10 + positional_tactical_bonus;
     } else {
         if (is_capture) {
             // Category 3: Losing Captures (placed strictly AFTER quiet moves)
-            return -20000 + see_score * 10 + positional_tactical_bonus;
+            return -20000 + (see_score + threat_reduction) * 10 + positional_tactical_bonus;
         } else {
             // Category 2: Unsafe Quiet Moves (moves into undefended attack)
-            return -10000 + see_score * 10 + positional_tactical_bonus;
+            return -10000 + (see_score + threat_reduction) * 10 + positional_tactical_bonus;
         }
     }
 }

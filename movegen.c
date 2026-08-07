@@ -679,7 +679,7 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
     return (gain[0] > 0) ? gain[0] : 0;
 }
 
-// Compute total board material threat to friendly pieces of 'side', excluding except_sq
+// Compute total board material threat to friendly pieces of 'side', excluding except_sq and PIECE_KING
 int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int except_sq)
 {
     Colour opp = opponent_of(side);
@@ -690,6 +690,7 @@ int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int exc
 
         int p = brd[sq];
         if (p == PIECE_NONE || get_piece_colour(p) != side) continue;
+        if (get_piece_type(p) == PIECE_KING) continue; //Would inflate score using actualy "king value"
 
         int opp_gain = see_square_for_opponent(brd, sq, opp);
         if (opp_gain > 0) {

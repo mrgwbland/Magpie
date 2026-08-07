@@ -1,6 +1,6 @@
 # Engine info
 NAME = Magpie
-VERSION = 0.2
+VERSION = dev2
 
 BUILD_DIR = build
 

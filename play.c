@@ -12,17 +12,39 @@
 #  define GetTickCount get_tick_count_ms
 #endif
 
-// Positional Piece-Square Table (PST) favoring central control
-static const int PST[64] = {
-    0,  2,  4,  6,  6,  4,  2, 0,
-    2,  8, 10, 12, 12, 10,  8, 2,
-    6, 12, 16, 18, 18, 16, 12, 6,
-    8, 14, 18, 20, 20, 18, 14, 8,
-    8, 14, 18, 20, 20, 18, 14, 8,
-    6, 12, 16, 18, 18, 16, 12, 6,
-    2,  8, 10, 12, 12, 10,  8, 2,
-    0,  2,  4,  6,  6,  4,  2, 0
+// Double mirrored 4x4 Piece-Square Tables (PST) for each piece type
+static const int PST[7][4][4] = {
+    [PIECE_NONE] = {
+        {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}
+    },
+    [PIECE_PAWN] = {
+        {0, 2, 4, 6}, {2, 8, 10, 12}, {6, 12, 16, 18}, {8, 14, 18, 20}
+    },
+    [PIECE_KING] = {
+        {0, -2, -4, -6}, {-2, -8, -10, -12}, {-6, -12, -16, -18}, {-8, -14, -18, -20}
+    },
+    [PIECE_KNIGHT] = {
+        {0, 2, 4, 6}, {2, 8, 10, 12}, {6, 12, 16, 18}, {8, 14, 18, 20}
+    },
+    [PIECE_BISHOP] = {
+        {0, 2, 4, 6}, {2, 8, 10, 12}, {6, 12, 16, 18}, {8, 14, 18, 20}
+    },
+    [PIECE_ROOK] = {
+        {0, 2, 4, 6}, {2, 8, 10, 12}, {6, 12, 16, 18}, {8, 14, 18, 20}
+    },
+    [PIECE_QUEEN] = {
+        {0, 2, 4, 6}, {2, 8, 10, 12}, {6, 12, 16, 18}, {8, 14, 18, 20}
+    }
 };
+
+static inline int get_pst_val(PieceType type, int sq)
+{
+    int r = sq / 8;
+    int f = sq % 8;
+    if (r >= 4) r = 7 - r;
+    if (f >= 4) f = 7 - f;
+    return PST[type][r][f];
+}
 
 // Evaluate a move using SEE, threat mitigation, terminal check, and PST positioning
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
@@ -52,15 +74,14 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 
     // Dual PST scoring for Castling moves
     if (type == PIECE_KING && abs(m->to - m->from) == 2) {
-        int king_pst_diff = (PST[m->to] * -1) - (PST[m->from] * -1);
+        int king_pst_diff = get_pst_val(PIECE_KING, m->to) - get_pst_val(PIECE_KING, m->from);
         int rook_from = (m->to > m->from) ? (m->to + 1) : (m->to - 2);
         int rook_to   = (m->to > m->from) ? (m->from + 1) : (m->from - 1);
-        int rook_pst_diff = PST[rook_to] - PST[rook_from];
+        int rook_pst_diff = get_pst_val(PIECE_ROOK, rook_to) - get_pst_val(PIECE_ROOK, rook_from);
         pst_diff = king_pst_diff + rook_pst_diff + 50; // includes +50 castling bonus
     } else {
-        int multiplier = (type != PIECE_KING ? 1 : -1);
-        int previous_pst_val = PST[m->from] * multiplier;
-        int new_pst_val = PST[m->to] * multiplier;
+        int previous_pst_val = get_pst_val(type, m->from);
+        int new_pst_val = get_pst_val(type, m->to);
         pst_diff = new_pst_val - previous_pst_val;
     }
 

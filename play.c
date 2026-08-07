@@ -83,8 +83,10 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     // =========================================================================
     // STAGE 3: Defensive Threat Evaluation (Saving Friendly Pieces)
     // =========================================================================
+    // Note: Destination square m->to is excluded from resulting_friendly_threat
+    // because exchange safety on m->to is already computed by SEE in Stage 4.
     int initial_friendly_threat = evaluate_board_threat(brd, side);
-    int resulting_friendly_threat = evaluate_board_threat(temp_board, side);
+    int resulting_friendly_threat = evaluate_board_threat_except(temp_board, side, m->to);
     int threat_reduction = initial_friendly_threat - resulting_friendly_threat;
 
     // =========================================================================

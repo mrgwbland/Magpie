@@ -119,6 +119,7 @@ bool is_square_attacked(const int brd[BOARD_SIZE], int square, Colour attacker_c
 int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move);
 int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp);
 int evaluate_board_threat(const int brd[BOARD_SIZE], Colour side);
+int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int except_sq);
 
 // terminal.c
 void init_terminal(void);

@@ -53,6 +53,9 @@ void apply_move_string(const char *move_str, Colour *side_to_move)
         board[to] = *side_to_move | promo_type;
     }
 
+    // Update castling rights
+    update_castling_rights(from, to);
+
     // Toggle active player
     *side_to_move = opponent_of(*side_to_move);
 }

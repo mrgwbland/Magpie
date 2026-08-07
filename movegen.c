@@ -223,6 +223,47 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
                     }
                 }
             }
+
+            // Castling Move Generation
+            if (side_to_move == COLOUR_WHITE && from == 60) {
+                if (!is_in_check(brd, COLOUR_WHITE)) {
+                    // White Kingside Castling (e1g1)
+                    if ((castling_rights & CASTLE_WK) &&
+                        brd[61] == PIECE_NONE && brd[62] == PIECE_NONE &&
+                        brd[63] == (COLOUR_WHITE | PIECE_ROOK) &&
+                        !is_square_attacked(brd, 61, COLOUR_BLACK) &&
+                        !is_square_attacked(brd, 62, COLOUR_BLACK)) {
+                        add_move(moves, &count, 60, 62, piece, PIECE_NONE, PIECE_NONE);
+                    }
+                    // White Queenside Castling (e1c1)
+                    if ((castling_rights & CASTLE_WQ) &&
+                        brd[59] == PIECE_NONE && brd[58] == PIECE_NONE && brd[57] == PIECE_NONE &&
+                        brd[56] == (COLOUR_WHITE | PIECE_ROOK) &&
+                        !is_square_attacked(brd, 59, COLOUR_BLACK) &&
+                        !is_square_attacked(brd, 58, COLOUR_BLACK)) {
+                        add_move(moves, &count, 60, 58, piece, PIECE_NONE, PIECE_NONE);
+                    }
+                }
+            } else if (side_to_move == COLOUR_BLACK && from == 4) {
+                if (!is_in_check(brd, COLOUR_BLACK)) {
+                    // Black Kingside Castling (e8g8)
+                    if ((castling_rights & CASTLE_BK) &&
+                        brd[5] == PIECE_NONE && brd[6] == PIECE_NONE &&
+                        brd[7] == (COLOUR_BLACK | PIECE_ROOK) &&
+                        !is_square_attacked(brd, 5, COLOUR_WHITE) &&
+                        !is_square_attacked(brd, 6, COLOUR_WHITE)) {
+                        add_move(moves, &count, 4, 6, piece, PIECE_NONE, PIECE_NONE);
+                    }
+                    // Black Queenside Castling (e8c8)
+                    if ((castling_rights & CASTLE_BQ) &&
+                        brd[3] == PIECE_NONE && brd[2] == PIECE_NONE && brd[1] == PIECE_NONE &&
+                        brd[0] == (COLOUR_BLACK | PIECE_ROOK) &&
+                        !is_square_attacked(brd, 3, COLOUR_WHITE) &&
+                        !is_square_attacked(brd, 2, COLOUR_WHITE)) {
+                        add_move(moves, &count, 4, 2, piece, PIECE_NONE, PIECE_NONE);
+                    }
+                }
+            }
         }
 
         // -------------------------------------------------------------------

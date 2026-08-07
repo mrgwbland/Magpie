@@ -31,10 +31,21 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     int see_score = static_exchange_evaluation(brd, *m);
 
     PieceType type = get_piece_type(m->piece);
-    int multiplier = (type != PIECE_KING ? 1 : -1);
-    int previous_pst_val = PST[m->from] * multiplier;
-    int new_pst_val = PST[m->to] * multiplier;
-    int pst_diff = new_pst_val - previous_pst_val;
+    int pst_diff = 0;
+
+    // Dual PST scoring for Castling moves
+    if (type == PIECE_KING && abs(m->to - m->from) == 2) {
+        int king_pst_diff = (PST[m->to] * -1) - (PST[m->from] * -1);
+        int rook_from = (m->to > m->from) ? (m->to + 1) : (m->to - 2);
+        int rook_to   = (m->to > m->from) ? (m->from + 1) : (m->from - 1);
+        int rook_pst_diff = PST[rook_to] - PST[rook_from];
+        pst_diff = king_pst_diff + rook_pst_diff + 50; // includes +50 castling bonus
+    } else {
+        int multiplier = (type != PIECE_KING ? 1 : -1);
+        int previous_pst_val = PST[m->from] * multiplier;
+        int new_pst_val = PST[m->to] * multiplier;
+        pst_diff = new_pst_val - previous_pst_val;
+    }
 
     bool is_capture = (m->captured != PIECE_NONE);
 
@@ -79,6 +90,17 @@ void make_engine_move(Colour *side_to_move)
         }
         temp_board[m.to] = placed_piece;
 
+        // Also move Rook on temp_board if castling
+        if (get_piece_type(m.piece) == PIECE_KING && abs(m.to - m.from) == 2) {
+            if (m.to - m.from == 2) {
+                temp_board[m.from + 1] = temp_board[m.to + 1];
+                temp_board[m.to + 1] = PIECE_NONE;
+            } else if (m.from - m.to == 2) {
+                temp_board[m.from - 1] = temp_board[m.to - 2];
+                temp_board[m.to - 2] = PIECE_NONE;
+            }
+        }
+
         // 2. Reject move if it leaves player's King in check
         if (is_in_check(temp_board, *side_to_move)) {
             continue;
@@ -103,6 +125,19 @@ void make_engine_move(Colour *side_to_move)
             placed_piece = *side_to_move | best_move.promotion;
         }
         board[best_move.to] = placed_piece;
+
+        // Also move Rook on main board if castling
+        if (get_piece_type(best_move.piece) == PIECE_KING && abs(best_move.to - best_move.from) == 2) {
+            if (best_move.to - best_move.from == 2) {
+                board[best_move.from + 1] = board[best_move.to + 1];
+                board[best_move.to + 1] = PIECE_NONE;
+            } else if (best_move.from - best_move.to == 2) {
+                board[best_move.from - 1] = board[best_move.to - 2];
+                board[best_move.to - 2] = PIECE_NONE;
+            }
+        }
+
+        update_castling_rights(best_move.from, best_move.to);
 
         char from_str[4], to_str[4];
         square_to_algebraic(best_move.from, from_str);

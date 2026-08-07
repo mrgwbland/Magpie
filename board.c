@@ -11,14 +11,26 @@ const int PIECE_VALUES[] = {
     [PIECE_QUEEN]  = 1000
 };
 
-// Global 64-square chess board
+// Global 64-square chess board & castling rights
 int board[BOARD_SIZE];
-
+unsigned int castling_rights = 0;
 
 // Resets board to all empty squares
 void init_board(void)
 {
     memset(board, 0, sizeof(board));
+    castling_rights = 0;
+}
+
+// Update castling rights when pieces move or are captured
+void update_castling_rights(int from, int to)
+{
+    if (from == 60 || to == 60) castling_rights &= ~(CASTLE_WK | CASTLE_WQ);
+    if (from == 4  || to == 4)  castling_rights &= ~(CASTLE_BK | CASTLE_BQ);
+    if (from == 63 || to == 63) castling_rights &= ~CASTLE_WK;
+    if (from == 56 || to == 56) castling_rights &= ~CASTLE_WQ;
+    if (from == 7  || to == 7)  castling_rights &= ~CASTLE_BK;
+    if (from == 0  || to == 0)  castling_rights &= ~CASTLE_BQ;
 }
 
 // Convert square index (0..63) to algebraic string (e.g., 60 -> "e1")
@@ -97,6 +109,17 @@ Colour setup_fen(const char *fen)
     // 2. Parse active colour
     while (*ptr == ' ') ptr++;
     Colour side_to_move = (*ptr == 'b') ? COLOUR_BLACK : COLOUR_WHITE;
+    if (*ptr) ptr++;
+
+    // 3. Parse castling availability
+    while (*ptr == ' ') ptr++;
+    while (*ptr && *ptr != ' ') {
+        if (*ptr == 'K') castling_rights |= CASTLE_WK;
+        if (*ptr == 'Q') castling_rights |= CASTLE_WQ;
+        if (*ptr == 'k') castling_rights |= CASTLE_BK;
+        if (*ptr == 'q') castling_rights |= CASTLE_BQ;
+        ptr++;
+    }
 
     return side_to_move;
 }

@@ -40,6 +40,14 @@ typedef enum {
 // Piece values used in material evaluation
 extern const int PIECE_VALUES[];
 
+// Castling Rights Flags
+#define CASTLE_WK 1
+#define CASTLE_WQ 2
+#define CASTLE_BK 4
+#define CASTLE_BQ 8
+
+extern unsigned int castling_rights;
+
 // Board state array (64-element representation)
 extern int board[BOARD_SIZE];
 
@@ -100,6 +108,7 @@ void init_board(void);
 Colour setup_fen(const char *fen);
 void square_to_algebraic(int square, char *out_str);
 int algebraic_to_square(const char *str);
+void update_castling_rights(int from, int to);
 
 // movegen.c
 int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[]);

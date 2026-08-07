@@ -39,22 +39,15 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     bool is_capture = (m->captured != PIECE_NONE);
 
     if (see_score >= 0) {
-        if (is_capture) {
-            // Category 1: Good / Equal Captures
-            return 20000 + see_score * 10 + pst_diff;
-        } else if (initial_threat > 0 && threat_reduction > 0) {
-            // Category 2: Threat Mitigation Moves (Escapes / Blocks / Defenses / Counter-attacks)
-            return 15000 + threat_reduction * 10 + see_score * 10 + pst_diff;
-        } else {
-            // Category 3: Safe Quiet Moves
-            return pst_diff;
-        }
+        // Blend destination SEE score and threat reduction into total Expected Value (EV)
+        int ev_score = see_score + (threat_reduction > 0 ? threat_reduction : 0);
+        return 10000 + ev_score * 10 + pst_diff;
     } else {
         if (is_capture) {
-            // Category 5: Losing Captures (placed strictly AFTER quiet moves)
+            // Category 3: Losing Captures (placed strictly AFTER quiet moves)
             return -20000 + see_score * 10 + pst_diff;
         } else {
-            // Category 4: Unsafe Quiet Moves (moves into undefended attack)
+            // Category 2: Unsafe Quiet Moves (moves into undefended attack)
             return -10000 + see_score * 10 + pst_diff;
         }
     }

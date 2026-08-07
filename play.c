@@ -1,5 +1,17 @@
 #include "magpie.h"
 
+#if defined(WIN32) || defined(_WIN32)
+#  include <windows.h>
+#else
+#  include <sys/time.h>
+   static long get_tick_count_ms(void) {
+       struct timeval t;
+       gettimeofday(&t, NULL);
+       return t.tv_sec * 1000 + t.tv_usec / 1000;
+   }
+#  define GetTickCount get_tick_count_ms
+#endif
+
 // Positional Piece-Square Table (PST) favoring central control
 static const int PST[64] = {
     0,  2,  4,  6,  6,  4,  2, 0,
@@ -72,6 +84,7 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 // Select and execute the best move for side_to_move using 0-ply static move evaluation
 void make_engine_move(Colour *side_to_move)
 {
+    long start_time = GetTickCount();
     Move moves[256];
     int move_count = generate_moves(board, *side_to_move, moves);
 
@@ -120,6 +133,9 @@ void make_engine_move(Colour *side_to_move)
             found_legal_move = true;
         }
     }
+
+    long elapsed_ms = GetTickCount() - start_time;
+    printf("info depth 0 time %ld\n", elapsed_ms);
 
     // Output UCI bestmove
     if (found_legal_move && best_move.from != -1 && best_move.to != -1) {

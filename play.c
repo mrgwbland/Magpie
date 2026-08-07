@@ -12,35 +12,23 @@ static const int PST[64] = {
     0,  2,  4,  6,  6,  4,  2, 0
 };
 
-// Static evaluation function (0-ply static score)
-int evaluate_position(const int brd[BOARD_SIZE], Colour side)
+// Evaluate a move statically (move-based evaluation)
+int evaluate_move(const Move *m)
 {
-    int score = 0;
-    Colour opp = opponent_of(side);
-
-    for (int sq = 0; sq < BOARD_SIZE; sq++) {
-        int piece = brd[sq];
-        if (piece == PIECE_NONE) continue;
-
-        Colour piece_colour = get_piece_colour(piece);
-        PieceType type = get_piece_type(piece);
-
-        int value = PIECE_VALUES[type];
-
-        // Positional bonus directly from PST (reverse for King)
-        int positional_bonus = PST[sq] * (type != PIECE_KING ? 1 : -1);
-
-        if (piece_colour == side) {
-            score += value + positional_bonus;
-        } else if (piece_colour == opp) {
-            score -= (value + positional_bonus);
-        }
+    if (m->captured != PIECE_NONE) {
+        int victim_cost = PIECE_VALUES[get_piece_type(m->captured)];
+        int attacker_cost = PIECE_VALUES[get_piece_type(m->piece)];
+        return (10 * victim_cost) - attacker_cost;
+    } else {
+        PieceType type = get_piece_type(m->piece);
+        int multiplier = (type != PIECE_KING ? 1 : -1);
+        int previous_pst_val = PST[m->from] * multiplier;
+        int new_pst_val = PST[m->to] * multiplier;
+        return new_pst_val - previous_pst_val;
     }
-
-    return score;
 }
 
-// Select and execute the best move for side_to_move using 0-ply static evaluation
+// Select and execute the best move for side_to_move using 0-ply static move evaluation
 void make_engine_move(Colour *side_to_move)
 {
     Move moves[256];
@@ -71,13 +59,8 @@ void make_engine_move(Colour *side_to_move)
             continue;
         }
 
-        // 3. Evaluate resulting board position
-        int score = evaluate_position(temp_board, *side_to_move);
-
-        // Check bonus (+50 points for placing opponent in check)
-        if (is_in_check(temp_board, opp)) {
-            score += 50;
-        }
+        // 3. Evaluate candidate move directly
+        int score = evaluate_move(&m);
 
         if (!found_legal_move || score > best_score) {
             best_score = score;

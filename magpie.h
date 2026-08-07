@@ -107,7 +107,7 @@ bool is_in_check(const int brd[BOARD_SIZE], Colour side);
 bool is_square_attacked(const int brd[BOARD_SIZE], int square, Colour attacker_colour);
 
 // play.c
-int evaluate_position(const int brd[BOARD_SIZE], Colour side);
+int evaluate_move(const Move *m);
 void make_engine_move(Colour *side_to_move);
 
 // uci.c

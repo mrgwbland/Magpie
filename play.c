@@ -12,19 +12,35 @@ static const int PST[64] = {
     0,  2,  4,  6,  6,  4,  2, 0
 };
 
-// Evaluate a move statically (move-based evaluation)
-int evaluate_move(const Move *m)
+// Evaluate a move using SEE (Static Exchange Evaluation) and PST positioning
+int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 {
-    if (m->captured != PIECE_NONE) {
-        int victim_cost = PIECE_VALUES[get_piece_type(m->captured)];
-        int attacker_cost = PIECE_VALUES[get_piece_type(m->piece)];
-        return (10 * victim_cost) - attacker_cost;
+    int see_score = static_exchange_evaluation(brd, *m);
+
+    PieceType type = get_piece_type(m->piece);
+    int multiplier = (type != PIECE_KING ? 1 : -1);
+    int previous_pst_val = PST[m->from] * multiplier;
+    int new_pst_val = PST[m->to] * multiplier;
+    int pst_diff = new_pst_val - previous_pst_val;
+
+    bool is_capture = (m->captured != PIECE_NONE);
+
+    if (is_capture) {
+        if (see_score >= 0) {
+            // Category 1: Winning / Equal Captures
+            return 20000 + see_score * 10 + pst_diff;
+        } else {
+            // Category 4: Losing Captures (placed strictly AFTER quiet moves)
+            return -20000 + see_score * 10 + pst_diff;
+        }
     } else {
-        PieceType type = get_piece_type(m->piece);
-        int multiplier = (type != PIECE_KING ? 1 : -1);
-        int previous_pst_val = PST[m->from] * multiplier;
-        int new_pst_val = PST[m->to] * multiplier;
-        return new_pst_val - previous_pst_val;
+        if (see_score >= 0) {
+            // Category 2: Safe Quiet Moves
+            return pst_diff;
+        } else {
+            // Category 3: Unsafe Quiet Moves (moves into undefended attack)
+            return -10000 + see_score * 10 + pst_diff;
+        }
     }
 }
 
@@ -60,7 +76,7 @@ void make_engine_move(Colour *side_to_move)
         }
 
         // 3. Evaluate candidate move directly
-        int score = evaluate_move(&m);
+        int score = evaluate_move(board, &m);
 
         if (!found_legal_move || score > best_score) {
             best_score = score;

@@ -267,3 +267,235 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
 
     return count;
 }
+
+typedef struct {
+    bool pinned;
+    int dr;
+    int df;
+} PinInfo;
+
+static void compute_pins(const int brd[BOARD_SIZE], Colour side, PinInfo pins[BOARD_SIZE])
+{
+    for (int i = 0; i < BOARD_SIZE; i++) {
+        pins[i].pinned = false;
+        pins[i].dr = 0;
+        pins[i].df = 0;
+    }
+
+    int king_sq = -1;
+    int target_king = (int)(side | PIECE_KING);
+    for (int sq = 0; sq < BOARD_SIZE; sq++) {
+        if (brd[sq] == target_king) {
+            king_sq = sq;
+            break;
+        }
+    }
+    if (king_sq == -1) return;
+
+    int kr = get_rank(king_sq);
+    int kf = get_file(king_sq);
+    Colour opp = opponent_of(side);
+
+    // Scan all 8 directions from king
+    for (int i = 0; i < 8; i++) {
+        int dr = KING_OFFSETS[i].dr;
+        int df = KING_OFFSETS[i].df;
+
+        int r = kr + dr;
+        int f = kf + df;
+        int friendly_sq = -1;
+        int friendly_count = 0;
+
+        while (r >= 0 && r < 8 && f >= 0 && f < 8) {
+            int sq = make_square(r, f);
+            int p = brd[sq];
+
+            if (p != PIECE_NONE) {
+                if (get_piece_colour(p) == side) {
+                    friendly_count++;
+                    if (friendly_count == 1) {
+                        friendly_sq = sq;
+                    } else {
+                        break; // 2+ friendly pieces along ray
+                    }
+                } else if (get_piece_colour(p) == opp) {
+                    if (friendly_count == 1) {
+                        PieceType pt = get_piece_type(p);
+                        bool is_diag = (dr != 0 && df != 0);
+                        if (is_diag && (pt == PIECE_BISHOP || pt == PIECE_QUEEN)) {
+                            pins[friendly_sq].pinned = true;
+                            pins[friendly_sq].dr = dr;
+                            pins[friendly_sq].df = df;
+                        } else if (!is_diag && (pt == PIECE_ROOK || pt == PIECE_QUEEN)) {
+                            pins[friendly_sq].pinned = true;
+                            pins[friendly_sq].dr = dr;
+                            pins[friendly_sq].df = df;
+                        }
+                    }
+                    break; // Enemy piece, end of ray scan
+                }
+            }
+
+            r += dr;
+            f += df;
+        }
+    }
+}
+
+static inline bool is_aligned(int fr, int ff, int tr, int tf, int pin_dr, int pin_df)
+{
+    int move_dr = tr - fr;
+    int move_df = tf - ff;
+
+    if (pin_dr == 0 && move_dr != 0) return false;
+    if (pin_df == 0 && move_df != 0) return false;
+
+    return (move_dr * pin_df == move_df * pin_dr);
+}
+
+// Static Exchange Evaluation (SEE) with hard pin awareness
+int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
+{
+    int from = move.from;
+    int to = move.to;
+
+    int moving_piece = move.piece;
+    Colour side = get_piece_colour(moving_piece);
+
+    // Initial victim value
+    int captured_type = get_piece_type(move.captured);
+    int initial_gain = PIECE_VALUES[captured_type];
+    if (move.promotion != PIECE_NONE) {
+        initial_gain += PIECE_VALUES[move.promotion] - PIECE_VALUES[PIECE_PAWN];
+    }
+
+    // Temporary board state for simulation
+    int temp_board[BOARD_SIZE];
+    memcpy(temp_board, brd, sizeof(int) * BOARD_SIZE);
+
+    // Precalculate pins for BOTH sides
+    PinInfo pins_white[BOARD_SIZE];
+    PinInfo pins_black[BOARD_SIZE];
+    compute_pins(temp_board, COLOUR_WHITE, pins_white);
+    compute_pins(temp_board, COLOUR_BLACK, pins_black);
+
+    int swap_list[32];
+    int depth = 0;
+    swap_list[depth++] = initial_gain;
+
+    // Place moving piece on target square
+    int current_piece = (move.promotion != PIECE_NONE) ? (int)(side | move.promotion) : moving_piece;
+    temp_board[from] = PIECE_NONE;
+    temp_board[to] = current_piece;
+
+    Colour curr_side = opponent_of(side);
+
+    int to_r = get_rank(to);
+    int to_f = get_file(to);
+
+    while (depth < 32) {
+        int least_val = 999999;
+        int least_sq = -1;
+        int least_piece = PIECE_NONE;
+
+        const PinInfo *pins = (curr_side == COLOUR_WHITE) ? pins_white : pins_black;
+
+        for (int sq = 0; sq < BOARD_SIZE; sq++) {
+            int p = temp_board[sq];
+            if (p == PIECE_NONE || get_piece_colour(p) != curr_side) continue;
+
+            PieceType pt = get_piece_type(p);
+            int sq_r = get_rank(sq);
+            int sq_f = get_file(sq);
+
+            // Filter out attackers that are hard-pinned off the target square's ray
+            if (pins[sq].pinned) {
+                if (!is_aligned(sq_r, sq_f, to_r, to_f, pins[sq].dr, pins[sq].df)) {
+                    continue;
+                }
+            }
+
+            bool attacks = false;
+
+            if (pt == PIECE_PAWN) {
+                int pawn_dr = (curr_side == COLOUR_WHITE) ? -1 : 1;
+                if (to_r == sq_r + pawn_dr && (to_f == sq_f - 1 || to_f == sq_f + 1)) {
+                    attacks = true;
+                }
+            } else if (pt == PIECE_KNIGHT) {
+                int dr = abs(to_r - sq_r);
+                int df = abs(to_f - sq_f);
+                if ((dr == 1 && df == 2) || (dr == 2 && df == 1)) {
+                    attacks = true;
+                }
+            } else if (pt == PIECE_KING) {
+                int dr = abs(to_r - sq_r);
+                int df = abs(to_f - sq_f);
+                if (dr <= 1 && df <= 1) {
+                    attacks = true;
+                }
+            } else {
+                int dr = to_r - sq_r;
+                int df = to_f - sq_f;
+                bool is_diag = (abs(dr) == abs(df));
+                bool is_ortho = (dr == 0 || df == 0);
+
+                bool valid_dir = false;
+                if (pt == PIECE_BISHOP && is_diag) valid_dir = true;
+                if (pt == PIECE_ROOK && is_ortho) valid_dir = true;
+                if (pt == PIECE_QUEEN && (is_diag || is_ortho)) valid_dir = true;
+
+                if (valid_dir) {
+                    int step_r = (dr > 0) ? 1 : ((dr < 0) ? -1 : 0);
+                    int step_f = (df > 0) ? 1 : ((df < 0) ? -1 : 0);
+
+                    int check_r = sq_r + step_r;
+                    int check_f = sq_f + step_f;
+                    bool blocked = false;
+
+                    while (check_r != to_r || check_f != to_f) {
+                        if (temp_board[make_square(check_r, check_f)] != PIECE_NONE) {
+                            blocked = true;
+                            break;
+                        }
+                        check_r += step_r;
+                        check_f += step_f;
+                    }
+
+                    if (!blocked) attacks = true;
+                }
+            }
+
+            if (attacks) {
+                int val = PIECE_VALUES[pt];
+                if (val < least_val) {
+                    least_val = val;
+                    least_sq = sq;
+                    least_piece = p;
+                }
+            }
+        }
+
+        if (least_sq == -1) break;
+
+        swap_list[depth] = PIECE_VALUES[get_piece_type(current_piece)];
+        depth++;
+
+        current_piece = least_piece;
+        temp_board[least_sq] = PIECE_NONE;
+        temp_board[to] = current_piece;
+
+        curr_side = opponent_of(curr_side);
+    }
+
+    int gain[32];
+    gain[depth - 1] = swap_list[depth - 1];
+
+    for (int i = depth - 1; i > 0; i--) {
+        int next_gain = (gain[i] > 0) ? gain[i] : 0;
+        gain[i - 1] = swap_list[i - 1] - next_gain;
+    }
+
+    return gain[0];
+}
+

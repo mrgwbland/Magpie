@@ -11,7 +11,7 @@ WIN_TARGET = $(BUILD_DIR)/$(NAME)_$(VERSION).exe
 # Compiler and flags
 CC = gcc
 WIN_CC = x86_64-w64-mingw32-gcc
-CFLAGS = -Wall -Wextra -O2 -DENGINE_VERSION=\"$(VERSION)\" -DENGINE_NAME=\"$(NAME)\"
+CFLAGS = -Wall -Wextra -Ofast -march=native -DENGINE_VERSION=\"$(VERSION)\" -DENGINE_NAME=\"$(NAME)\"
 
 # Header dependency tracking
 HEADERS = magpie.h

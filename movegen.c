@@ -499,3 +499,156 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
     return gain[0];
 }
 
+// Evaluate maximum net material score opponent 'opp' can gain by capturing on target_sq
+int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp)
+{
+    int victim_piece = brd[target_sq];
+    if (victim_piece == PIECE_NONE) return 0;
+
+    int initial_gain = PIECE_VALUES[get_piece_type(victim_piece)];
+
+    int temp_board[BOARD_SIZE];
+    memcpy(temp_board, brd, sizeof(int) * BOARD_SIZE);
+
+    PinInfo pins_white[BOARD_SIZE];
+    PinInfo pins_black[BOARD_SIZE];
+    compute_pins(temp_board, COLOUR_WHITE, pins_white);
+    compute_pins(temp_board, COLOUR_BLACK, pins_black);
+
+    int swap_list[32];
+    int depth = 0;
+
+    Colour curr_side = opp;
+    int current_piece = victim_piece;
+    int to_r = get_rank(target_sq);
+    int to_f = get_file(target_sq);
+
+    while (depth < 32) {
+        int least_val = 999999;
+        int least_sq = -1;
+        int least_piece = PIECE_NONE;
+
+        const PinInfo *pins = (curr_side == COLOUR_WHITE) ? pins_white : pins_black;
+
+        for (int sq = 0; sq < BOARD_SIZE; sq++) {
+            int p = temp_board[sq];
+            if (p == PIECE_NONE || get_piece_colour(p) != curr_side) continue;
+
+            if (sq == target_sq) continue;
+
+            PieceType pt = get_piece_type(p);
+            int sq_r = get_rank(sq);
+            int sq_f = get_file(sq);
+
+            if (pins[sq].pinned) {
+                if (!is_aligned(sq_r, sq_f, to_r, to_f, pins[sq].dr, pins[sq].df)) {
+                    continue;
+                }
+            }
+
+            bool attacks = false;
+
+            if (pt == PIECE_PAWN) {
+                int pawn_dr = (curr_side == COLOUR_WHITE) ? -1 : 1;
+                if (to_r == sq_r + pawn_dr && (to_f == sq_f - 1 || to_f == sq_f + 1)) {
+                    attacks = true;
+                }
+            } else if (pt == PIECE_KNIGHT) {
+                int dr = abs(to_r - sq_r);
+                int df = abs(to_f - sq_f);
+                if ((dr == 1 && df == 2) || (dr == 2 && df == 1)) {
+                    attacks = true;
+                }
+            } else if (pt == PIECE_KING) {
+                int dr = abs(to_r - sq_r);
+                int df = abs(to_f - sq_f);
+                if (dr <= 1 && df <= 1) {
+                    attacks = true;
+                }
+            } else {
+                int dr = to_r - sq_r;
+                int df = to_f - sq_f;
+                bool is_diag = (abs(dr) == abs(df));
+                bool is_ortho = (dr == 0 || df == 0);
+
+                bool valid_dir = false;
+                if (pt == PIECE_BISHOP && is_diag) valid_dir = true;
+                if (pt == PIECE_ROOK && is_ortho) valid_dir = true;
+                if (pt == PIECE_QUEEN && (is_diag || is_ortho)) valid_dir = true;
+
+                if (valid_dir) {
+                    int step_r = (dr > 0) ? 1 : ((dr < 0) ? -1 : 0);
+                    int step_f = (df > 0) ? 1 : ((df < 0) ? -1 : 0);
+
+                    int check_r = sq_r + step_r;
+                    int check_f = sq_f + step_f;
+                    bool blocked = false;
+
+                    while (check_r != to_r || check_f != to_f) {
+                        if (temp_board[make_square(check_r, check_f)] != PIECE_NONE) {
+                            blocked = true;
+                            break;
+                        }
+                        check_r += step_r;
+                        check_f += step_f;
+                    }
+
+                    if (!blocked) attacks = true;
+                }
+            }
+
+            if (attacks) {
+                int val = PIECE_VALUES[pt];
+                if (val < least_val) {
+                    least_val = val;
+                    least_sq = sq;
+                    least_piece = p;
+                }
+            }
+        }
+
+        if (least_sq == -1) break;
+
+        swap_list[depth] = (depth == 0) ? initial_gain : PIECE_VALUES[get_piece_type(current_piece)];
+        depth++;
+
+        current_piece = least_piece;
+        temp_board[least_sq] = PIECE_NONE;
+        temp_board[target_sq] = current_piece;
+
+        curr_side = opponent_of(curr_side);
+    }
+
+    if (depth == 0) return 0;
+
+    int gain[32];
+    gain[depth - 1] = swap_list[depth - 1];
+
+    for (int i = depth - 1; i > 0; i--) {
+        int next_gain = (gain[i] > 0) ? gain[i] : 0;
+        gain[i - 1] = swap_list[i - 1] - next_gain;
+    }
+
+    return (gain[0] > 0) ? gain[0] : 0;
+}
+
+// Compute total board material threat to all friendly pieces of 'side'
+int evaluate_board_threat(const int brd[BOARD_SIZE], Colour side)
+{
+    Colour opp = opponent_of(side);
+    int total_threat = 0;
+
+    for (int sq = 0; sq < BOARD_SIZE; sq++) {
+        int p = brd[sq];
+        if (p == PIECE_NONE || get_piece_colour(p) != side) continue;
+
+        int opp_gain = see_square_for_opponent(brd, sq, opp);
+        if (opp_gain > 0) {
+            total_threat += opp_gain;
+        }
+    }
+
+    return total_threat;
+}
+
+

@@ -12,9 +12,22 @@ static const int PST[64] = {
     0,  2,  4,  6,  6,  4,  2, 0
 };
 
-// Evaluate a move using SEE (Static Exchange Evaluation) and PST positioning
+// Evaluate a move using SEE, threat mitigation, and PST positioning
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 {
+    Colour side = get_piece_colour(m->piece);
+    int initial_threat = evaluate_board_threat(brd, side);
+
+    // Make move on temp_board to evaluate resulting threat
+    int temp_board[BOARD_SIZE];
+    memcpy(temp_board, brd, sizeof(int) * BOARD_SIZE);
+    temp_board[m->from] = PIECE_NONE;
+    int placed_piece = (m->promotion != PIECE_NONE) ? (int)(side | m->promotion) : m->piece;
+    temp_board[m->to] = placed_piece;
+
+    int resulting_threat = evaluate_board_threat(temp_board, side);
+    int threat_reduction = initial_threat - resulting_threat;
+
     int see_score = static_exchange_evaluation(brd, *m);
 
     PieceType type = get_piece_type(m->piece);
@@ -25,20 +38,23 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 
     bool is_capture = (m->captured != PIECE_NONE);
 
-    if (is_capture) {
-        if (see_score >= 0) {
-            // Category 1: Winning / Equal Captures
+    if (see_score >= 0) {
+        if (is_capture) {
+            // Category 1: Good / Equal Captures
             return 20000 + see_score * 10 + pst_diff;
+        } else if (initial_threat > 0 && threat_reduction > 0) {
+            // Category 2: Threat Mitigation Moves (Escapes / Blocks / Defenses / Counter-attacks)
+            return 15000 + threat_reduction * 10 + see_score * 10 + pst_diff;
         } else {
-            // Category 4: Losing Captures (placed strictly AFTER quiet moves)
-            return -20000 + see_score * 10 + pst_diff;
+            // Category 3: Safe Quiet Moves
+            return pst_diff;
         }
     } else {
-        if (see_score >= 0) {
-            // Category 2: Safe Quiet Moves
-            return pst_diff;
+        if (is_capture) {
+            // Category 5: Losing Captures (placed strictly AFTER quiet moves)
+            return -20000 + see_score * 10 + pst_diff;
         } else {
-            // Category 3: Unsafe Quiet Moves (moves into undefended attack)
+            // Category 4: Unsafe Quiet Moves (moves into undefended attack)
             return -10000 + see_score * 10 + pst_diff;
         }
     }

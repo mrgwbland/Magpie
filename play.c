@@ -46,34 +46,71 @@ static inline int get_pst_val(PieceType type, int sq)
     return PST[type][r][f];
 }
 
-// Evaluate a move using SEE, threat mitigation, terminal check, and PST positioning
+// Evaluate a move
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 {
+    // =========================================================================
+    // STAGE 1: Terminal Game State Check (Checkmate, Stalemate, 3-fold, 50-move)
+    // =========================================================================
     int term_score = 0;
     if (is_terminal_move(brd, m, &term_score)) {
         return term_score;
     }
 
+    // =========================================================================
+    // STAGE 2: Board State & Move Simulation
+    // =========================================================================
     Colour side = get_piece_colour(m->piece);
-    int initial_threat = evaluate_board_threat(brd, side);
+    Colour opp  = opponent_of(side);
 
-    // Make move on temp_board to evaluate resulting threat
     int temp_board[BOARD_SIZE];
     memcpy(temp_board, brd, sizeof(int) * BOARD_SIZE);
     temp_board[m->from] = PIECE_NONE;
     int placed_piece = (m->promotion != PIECE_NONE) ? (int)(side | m->promotion) : m->piece;
     temp_board[m->to] = placed_piece;
 
-    int resulting_threat = evaluate_board_threat(temp_board, side);
-    int threat_reduction = initial_threat - resulting_threat;
+    // Handle Rook placement on temp_board for castling moves
+    if (get_piece_type(m->piece) == PIECE_KING && abs(m->to - m->from) == 2) {
+        if (m->to - m->from == 2) {
+            temp_board[m->from + 1] = temp_board[m->to + 1];
+            temp_board[m->to + 1] = PIECE_NONE;
+        } else if (m->from - m->to == 2) {
+            temp_board[m->from - 1] = temp_board[m->to - 2];
+            temp_board[m->to - 2] = PIECE_NONE;
+        }
+    }
 
+    // =========================================================================
+    // STAGE 3: Defensive Threat Evaluation (Saving Friendly Pieces)
+    // =========================================================================
+    int initial_friendly_threat = evaluate_board_threat(brd, side);
+    int resulting_friendly_threat = evaluate_board_threat(temp_board, side);
+    int threat_reduction = initial_friendly_threat - resulting_friendly_threat;
+
+    // =========================================================================
+    // STAGE 4: Static Exchange Evaluation (SEE Target Square Safety & Material)
+    // =========================================================================
     int see_score = static_exchange_evaluation(brd, *m);
 
+    // =========================================================================
+    // STAGE 5: Offensive Threat Evaluation (Creating New Enemy Threats) - this stage gives an inherent knowledge of forks
+    // =========================================================================
+    // Material value of enemy pieces threatened after move minus before move
+    int initial_enemy_threat = evaluate_board_threat(brd, opp);
+    int resulting_enemy_threat = evaluate_board_threat(temp_board, opp);
+    int offensive_threat_diff = resulting_enemy_threat - initial_enemy_threat;
+
+    // Low-magnitude offensive bonus applied on top of positional PST scoring (1/10th of material threat)
+    int offensive_bonus = offensive_threat_diff / 10;
+
+    // =========================================================================
+    // STAGE 6: Positional Piece-Square Table (PST) Delta
+    // =========================================================================
     PieceType type = get_piece_type(m->piece);
     int pst_diff = 0;
 
-    // Dual PST scoring for Castling moves
     if (type == PIECE_KING && abs(m->to - m->from) == 2) {
+        // Dual PST scoring for Castling moves
         int king_pst_diff = get_pst_val(PIECE_KING, m->to) - get_pst_val(PIECE_KING, m->from);
         int rook_from = (m->to > m->from) ? (m->to + 1) : (m->to - 2);
         int rook_to   = (m->to > m->from) ? (m->from + 1) : (m->from - 1);
@@ -85,19 +122,23 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
         pst_diff = new_pst_val - previous_pst_val;
     }
 
+    // =========================================================================
+    // STAGE 7: Final Move Scoring & Tier Categorization
+    // =========================================================================
     bool is_capture = (m->captured != PIECE_NONE);
+    int positional_tactical_bonus = pst_diff + offensive_bonus;
 
     if (see_score >= 0) {
-        // Blend destination SEE score and threat reduction into total Expected Value (EV)
+        // Category 1: Safe Moves (Blend SEE score and defensive threat reduction into Expected Value)
         int ev_score = see_score + (threat_reduction > 0 ? threat_reduction : 0);
-        return 10000 + ev_score * 10 + pst_diff;
+        return 10000 + ev_score * 10 + positional_tactical_bonus;
     } else {
         if (is_capture) {
             // Category 3: Losing Captures (placed strictly AFTER quiet moves)
-            return -20000 + see_score * 10 + pst_diff;
+            return -20000 + see_score * 10 + positional_tactical_bonus;
         } else {
             // Category 2: Unsafe Quiet Moves (moves into undefended attack)
-            return -10000 + see_score * 10 + pst_diff;
+            return -10000 + see_score * 10 + positional_tactical_bonus;
         }
     }
 }

@@ -1,6 +1,6 @@
 # Engine info
 NAME = Magpie
-VERSION = dev2
+VERSION = dev
 
 BUILD_DIR = build
 
@@ -20,10 +20,19 @@ HEADERS = magpie.h
 SRCS = main.c board.c movegen.c play.c uci.c terminal.c
 OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS:.c=.o))
 
-all: $(TARGET)
+# Tuning binary source files (tune.c replaces main.c)
+TUNE_SRCS = tune.c board.c movegen.c play.c uci.c terminal.c
+TUNE_TARGET = $(BUILD_DIR)/$(NAME)_tune
+
+all: $(TARGET) $(TUNE_TARGET)
 
 $(TARGET): $(OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
+
+tune: $(TUNE_TARGET)
+
+$(TUNE_TARGET): $(TUNE_SRCS) $(HEADERS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $(TUNE_SRCS)
 
 windows: $(WIN_TARGET)
 
@@ -39,4 +48,5 @@ $(BUILD_DIR):
 clean:
 	rm -rf $(BUILD_DIR)/*
 
-.PHONY: all windows clean
+.PHONY: all tune windows clean
+

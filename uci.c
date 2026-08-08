@@ -123,6 +123,84 @@ void run_uci(void)
         else if (strncmp(line, "go", 2) == 0) {
             make_engine_move(&side_to_move);
         }
+        else if (strcmp(line, "tuneeval") == 0) {
+            tune_evaluate_position(side_to_move);
+        }
+        else if (strncmp(line, "loadpst ", 8) == 0) {
+            const char *path = line + 8;
+            while (*path == ' ') path++;
+            if (load_pst_from_file(path) == 0) {
+                printf("info string PST loaded from %s\n", path);
+            } else {
+                printf("info string ERROR: Failed to load PST from %s\n", path);
+            }
+            fflush(stdout);
+        }
+        else if (strcmp(line, "tunebatch") == 0) {
+            // High-throughput batch mode for tuning:
+            // Reads FEN lines from stdin, outputs best move for each.
+            // Empty line terminates batch mode.
+            // Output per FEN: "<best_move_uci> <score>"
+            // Output "done" when batch ends.
+            char fen_line[32768];
+            while (fgets(fen_line, sizeof(fen_line), stdin)) {
+                fen_line[strcspn(fen_line, "\r\n")] = '\0';
+                if (strlen(fen_line) == 0) break;
+
+                side_to_move = setup_fen(fen_line);
+
+                Move moves[256];
+                int move_count = generate_moves(board, side_to_move, moves);
+
+                int best_score = -999999;
+                Move best_move = { .from = -1, .to = -1, .piece = PIECE_NONE,
+                                   .captured = PIECE_NONE, .promotion = PIECE_NONE };
+                bool found_legal = false;
+
+                for (int i = 0; i < move_count; i++) {
+                    Move m = moves[i];
+                    int temp_board[BOARD_SIZE];
+                    memcpy(temp_board, board, sizeof(board));
+                    temp_board[m.from] = PIECE_NONE;
+                    int placed = m.piece;
+                    if (m.promotion != PIECE_NONE) placed = side_to_move | m.promotion;
+                    temp_board[m.to] = placed;
+                    if (get_piece_type(m.piece) == PIECE_KING && abs(m.to - m.from) == 2) {
+                        if (m.to - m.from == 2) {
+                            temp_board[m.from + 1] = temp_board[m.to + 1];
+                            temp_board[m.to + 1] = PIECE_NONE;
+                        } else if (m.from - m.to == 2) {
+                            temp_board[m.from - 1] = temp_board[m.to - 2];
+                            temp_board[m.to - 2] = PIECE_NONE;
+                        }
+                    }
+                    if (is_in_check(temp_board, side_to_move)) continue;
+
+                    int score = evaluate_move(board, &m);
+                    if (!found_legal || score > best_score) {
+                        best_score = score;
+                        best_move = m;
+                        found_legal = true;
+                    }
+                }
+
+                if (found_legal && best_move.from != -1) {
+                    char from_str[4], to_str[4];
+                    square_to_algebraic(best_move.from, from_str);
+                    square_to_algebraic(best_move.to, to_str);
+                    const char *promo_str = "";
+                    if (best_move.promotion == PIECE_QUEEN)  promo_str = "q";
+                    if (best_move.promotion == PIECE_ROOK)   promo_str = "r";
+                    if (best_move.promotion == PIECE_BISHOP) promo_str = "b";
+                    if (best_move.promotion == PIECE_KNIGHT) promo_str = "n";
+                    printf("%s%s%s %d\n", from_str, to_str, promo_str, best_score);
+                } else {
+                    printf("0000 0\n");
+                }
+            }
+            printf("done\n");
+            fflush(stdout);
+        }
         else if (strcmp(line, "quit") == 0) {
             break;
         }

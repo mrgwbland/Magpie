@@ -13,7 +13,7 @@
 #endif
 
 // Horizontally mirrored 32-element Piece-Square Tables (PST) for each piece type
-static const int PST[7][32] = {
+static int PST[7][32] = {
     [PIECE_NONE] = {
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
@@ -284,5 +284,81 @@ void make_engine_move(Colour *side_to_move)
         printf("bestmove 0000\n");
     }
 
+    fflush(stdout);
+}
+
+// Load PST values from a text file
+// File format: 7 lines of 32 space-separated integers (one line per piece type, PIECE_NONE..PIECE_QUEEN)
+int load_pst_from_file(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+
+    for (int piece = 0; piece < 7; piece++) {
+        for (int i = 0; i < 32; i++) {
+            if (fscanf(f, "%d", &PST[piece][i]) != 1) {
+                fclose(f);
+                return -1;
+            }
+        }
+    }
+
+    fclose(f);
+    return 0;
+}
+
+// Evaluate all legal moves for current board position and output to stdout
+// Output format: one line per legal move: "<uci_move> <score>"
+// Ends with a blank line
+void tune_evaluate_position(Colour side_to_move)
+{
+    Move moves[256];
+    int move_count = generate_moves(board, side_to_move, moves);
+
+    for (int i = 0; i < move_count; i++) {
+        Move m = moves[i];
+
+        // Make move on temporary board to check legality
+        int temp_board[BOARD_SIZE];
+        memcpy(temp_board, board, sizeof(board));
+
+        temp_board[m.from] = PIECE_NONE;
+        int placed_piece = m.piece;
+        if (m.promotion != PIECE_NONE) {
+            placed_piece = side_to_move | m.promotion;
+        }
+        temp_board[m.to] = placed_piece;
+
+        // Handle castling rook movement
+        if (get_piece_type(m.piece) == PIECE_KING && abs(m.to - m.from) == 2) {
+            if (m.to - m.from == 2) {
+                temp_board[m.from + 1] = temp_board[m.to + 1];
+                temp_board[m.to + 1] = PIECE_NONE;
+            } else if (m.from - m.to == 2) {
+                temp_board[m.from - 1] = temp_board[m.to - 2];
+                temp_board[m.to - 2] = PIECE_NONE;
+            }
+        }
+
+        // Skip illegal moves (leaves king in check)
+        if (is_in_check(temp_board, side_to_move)) {
+            continue;
+        }
+
+        int score = evaluate_move(board, &m);
+
+        char from_str[4], to_str[4];
+        square_to_algebraic(m.from, from_str);
+        square_to_algebraic(m.to, to_str);
+
+        const char *promo_str = "";
+        if (m.promotion == PIECE_QUEEN)  promo_str = "q";
+        if (m.promotion == PIECE_ROOK)   promo_str = "r";
+        if (m.promotion == PIECE_BISHOP) promo_str = "b";
+        if (m.promotion == PIECE_KNIGHT) promo_str = "n";
+
+        printf("%s%s%s %d\n", from_str, to_str, promo_str, score);
+    }
+    printf("\n");
     fflush(stdout);
 }

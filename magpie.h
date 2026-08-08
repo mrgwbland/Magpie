@@ -131,6 +131,8 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score);
 // play.c
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m);
 void make_engine_move(Colour *side_to_move);
+int load_pst_from_file(const char *path);
+void tune_evaluate_position(Colour side_to_move);
 
 // uci.c
 void apply_move_string(const char *move_str, Colour *side_to_move);

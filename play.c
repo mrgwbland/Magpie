@@ -28,141 +28,143 @@ int get_board_non_pawn_material(const int brd[BOARD_SIZE])
     return npm;
 }
 
-// Horizontally mirrored 32-element Middlegame Piece-Square Tables (PST_MG) for each piece type
+// Horizontally mirrored 32-element Piece-Square Tables
+// Middlegame Piece-Square Tables
 static int PST_MG[7][32] = {
     [PIECE_NONE] = {
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
     },
     [PIECE_PAWN] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+          1,   0,   4,   6,
+          0,   6,  13,  12,
+         11,  13,  16,  18,
+          9,  13,  17,  20,
+          9,  13,  16,  21,
+          6,  10,  17,  16,
+         -4,   8,  10,  14,
+          2,  -1,   7,   6
     },
     [PIECE_KING] = {
-        0, -2, -4, -6,
-        -2, -8, -10, -12,
-        -6, -12, -16, -18,
-        -8, -14, -18, -20,
-        -8, -14, -18, -20,
-        -6, -12, -16, -18,
-        -2, -8, -10, -12,
-        0, -2, -4, -6
+         -1,   0,  -6,  -8,
+         -4,  -5,  -6, -15,
+         -7, -10, -15, -19,
+        -11, -18, -18, -20,
+         -8, -13, -20, -21,
+         -5, -10, -12, -19,
+          1,  -7,  -8, -10,
+          0,   0,  -6,  -5
     },
     [PIECE_KNIGHT] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+          1,  -3,   2,   3,
+          4,   8,  12,  13,
+          5,  13,  19,  17,
+         12,  15,  19,  23,
+          8,  14,  20,  22,
+          5,  13,  16,  18,
+          3,  10,   9,  10,
+          1,   0,   3,   7
     },
     [PIECE_BISHOP] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+          1,   3,  -1,   6,
+          2,   9,  11,  12,
+          8,  13,  16,  18,
+          8,  13,  17,  24,
+          7,  12,  17,  19,
+          6,  13,  16,  17,
+          2,   9,  12,  14,
+         -2,   6,   1,   2
     },
     [PIECE_ROOK] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+         -2,  -1,   7,   7,
+          0,   9,   9,  12,
+          5,  13,  19,  19,
+         10,  15,  18,  18,
+          9,  13,  17,  20,
+          7,  11,  15,  16,
+          0,  11,  11,  16,
+         -1,   3,   4,  10
     },
     [PIECE_QUEEN] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+         -1,   3,   3,   9,
+          3,   8,  11,  13,
+          6,  13,  16,  19,
+          9,  17,  18,  18,
+          7,  12,  16,  19,
+          6,  10,  15,  17,
+          2,  13,   7,  12,
+          1,   2,   5,   7
     }
 };
 
-// Horizontally mirrored 32-element Endgame Piece-Square Tables (PST_EG) for each piece type
+// Endgame Piece-Square Tables
 static int PST_EG[7][32] = {
     [PIECE_NONE] = {
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
     },
     [PIECE_PAWN] = {
-        0, 0, 0, 0,
-        20, 22, 25, 28,
-        15, 18, 20, 22,
-        10, 12, 14, 16,
-        6, 8, 10, 12,
-        4, 6, 8, 10,
-        2, 4, 6, 8,
-        0, 0, 0, 0
+          3,  -3,  -2,   2,
+         24,  25,  27,  33,
+         15,  17,  21,  23,
+         10,  11,  15,  17,
+          4,   7,  11,   8,
+         -1,   2,   6,   8,
+          1,   2,   6,  11,
+          1,  -5,  -1,  -1
     },
     [PIECE_KING] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+         -4,   5,   5,   7,
+          4,  14,  16,  13,
+          8,  12,  15,  21,
+          6,  15,  16,  16,
+          5,  12,  17,  20,
+          4,  16,  18,  19,
+          6,   7,  14,  14,
+         -5,   4,   6,   7
     },
     [PIECE_KNIGHT] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+          1,   3,   3,   6,
+         -1,  12,   9,   7,
+          6,  13,  17,  18,
+          9,  15,  16,  19,
+          8,  13,  16,  16,
+          3,  13,  15,  18,
+          3,   7,   9,  11,
+         -2,   0,   0,   7
     },
     [PIECE_BISHOP] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+          0,   1,   3,   5,
+          3,   7,   5,  11,
+          7,  11,  16,  15,
+          9,  14,  13,  21,
+         10,  14,  15,  21,
+          5,  11,  17,  19,
+          1,   5,  12,  12,
+          3,   1,   2,   7
     },
     [PIECE_ROOK] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+         -1,   1,   5,   6,
+          1,  10,  10,  11,
+          6,  13,  15,  21,
+         10,  17,  20,  16,
+          8,  11,  19,  20,
+          5,  12,  13,  18,
+          1,  10,   9,  11,
+         -2,   4,   2,   4
     },
     [PIECE_QUEEN] = {
-        0, 2, 4, 6,
-        2, 8, 10, 12,
-        6, 12, 16, 18,
-        8, 14, 18, 20,
-        8, 14, 18, 20,
-        6, 12, 16, 18,
-        2, 8, 10, 12,
-        0, 2, 4, 6
+          3,   4,   4,   7,
+          3,  11,  12,  10,
+          5,  12,  15,  17,
+          9,  14,  19,  16,
+          9,  10,  20,  20,
+          8,  12,  20,  19,
+          3,   9,   8,  14,
+         -2,   2,   1,   6
     }
 };
+
 
 static inline int get_pst_val(PieceType type, int sq, int npm)
 {
@@ -530,3 +532,63 @@ void tune_evaluate_position(Colour side_to_move)
     printf("\n");
     fflush(stdout);
 }
+
+#ifdef TUNE_BUILD
+// Output all 384 tunable PST parameters as UCI spin options
+void print_uci_options(void)
+{
+    static const char *piece_names[] = {
+        "", "Pawn", "King", "Knight", "Bishop", "Rook", "Queen"
+    };
+
+    for (int piece = 1; piece <= 6; piece++) {
+        for (int phase = 0; phase < 2; phase++) {
+            const char *phase_str = (phase == 0) ? "MG" : "EG";
+            int (*pst_table)[32] = (phase == 0) ? PST_MG : PST_EG;
+
+            for (int i = 0; i < 32; i++) {
+                int r = i / 4;
+                int f = i % 4;
+                char sq_str[3] = { (char)('a' + f), (char)('8' - r), '\0' };
+
+                int def_val = pst_table[piece][i];
+                printf("option name %s_%s_%s type spin default %d min -200 max 200\n",
+                       piece_names[piece], phase_str, sq_str, def_val);
+            }
+        }
+    }
+}
+
+// Set a single PST parameter by UCI option name
+bool set_uci_option(const char *name, int value)
+{
+    static const char *piece_names[] = {
+        "", "Pawn", "King", "Knight", "Bishop", "Rook", "Queen"
+    };
+
+    if (!name) return false;
+
+    for (int piece = 1; piece <= 6; piece++) {
+        for (int phase = 0; phase < 2; phase++) {
+            const char *phase_str = (phase == 0) ? "MG" : "EG";
+            int (*pst_table)[32] = (phase == 0) ? PST_MG : PST_EG;
+
+            for (int i = 0; i < 32; i++) {
+                int r = i / 4;
+                int f = i % 4;
+                char expected_name[64];
+                snprintf(expected_name, sizeof(expected_name), "%s_%s_%c%c",
+                         piece_names[piece], phase_str, (char)('a' + f), (char)('8' - r));
+
+                if (strcmp(name, expected_name) == 0) {
+                    pst_table[piece][i] = value;
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+#endif
+

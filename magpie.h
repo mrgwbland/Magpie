@@ -139,6 +139,10 @@ int load_pst_from_file(const char *path);
 int save_pst_to_file(const char *path);
 void tune_evaluate_position(Colour side_to_move);
 int get_board_non_pawn_material(const int brd[BOARD_SIZE]);
+#ifdef TUNE_BUILD
+void print_uci_options(void);
+bool set_uci_option(const char *name, int value);
+#endif
 
 // uci.c
 void apply_move_string(const char *move_str, Colour *side_to_move);

@@ -87,9 +87,34 @@ void run_uci(void)
         if (strcmp(line, "uci") == 0) {
             printf("id name %s %s\n", ENGINE_NAME, ENGINE_VERSION);
             printf("id author George Bland\n");
+#ifdef TUNE_BUILD
+            print_uci_options();
+#endif
             printf("uciok\n");
             fflush(stdout);
         }
+#ifdef TUNE_BUILD
+        else if (strncmp(line, "setoption name ", 15) == 0) {
+            const char *ptr = line + 15;
+            char opt_name[64];
+            int opt_val = 0;
+
+            const char *val_ptr = strstr(ptr, " value ");
+            if (val_ptr) {
+                size_t name_len = val_ptr - ptr;
+                if (name_len < sizeof(opt_name)) {
+                    strncpy(opt_name, ptr, name_len);
+                    opt_name[name_len] = '\0';
+                    opt_val = atoi(val_ptr + 7);
+                    set_uci_option(opt_name, opt_val);
+                }
+            } else {
+                strncpy(opt_name, ptr, sizeof(opt_name) - 1);
+                opt_name[sizeof(opt_name) - 1] = '\0';
+                set_uci_option(opt_name, 0);
+            }
+        }
+#endif
         else if (strcmp(line, "isready") == 0) {
             printf("readyok\n");
             fflush(stdout);

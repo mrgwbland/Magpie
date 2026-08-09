@@ -424,16 +424,6 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
     int temp_board[BOARD_SIZE];
     memcpy(temp_board, brd, sizeof(int) * BOARD_SIZE);
 
-    // Precalculate pins for BOTH sides
-    PinInfo pins_white[BOARD_SIZE];
-    PinInfo pins_black[BOARD_SIZE];
-    compute_pins(temp_board, COLOUR_WHITE, pins_white);
-    compute_pins(temp_board, COLOUR_BLACK, pins_black);
-
-    int swap_list[32];
-    int depth = 0;
-    swap_list[depth++] = initial_gain;
-
     // Place moving piece on target square
     int current_piece = (move.promotion != PIECE_NONE) ? (int)(side | move.promotion) : moving_piece;
     temp_board[from] = PIECE_NONE;
@@ -446,6 +436,16 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
             temp_board[ep_captured_sq] = PIECE_NONE;
         }
     }
+
+    // Precalculate pins for BOTH sides on post-move board state
+    PinInfo pins_white[BOARD_SIZE];
+    PinInfo pins_black[BOARD_SIZE];
+    compute_pins(temp_board, COLOUR_WHITE, pins_white);
+    compute_pins(temp_board, COLOUR_BLACK, pins_black);
+
+    int swap_list[32];
+    int depth = 0;
+    swap_list[depth++] = initial_gain;
 
     Colour curr_side = opponent_of(side);
 

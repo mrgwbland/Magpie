@@ -86,10 +86,10 @@ void update_halfmove_clock(const Move *m)
 }
 
 // Helper to count legal responses for a side on a board state
-static int count_legal_moves(const int temp_board[BOARD_SIZE], Colour side)
+static int count_legal_moves(const int temp_board[BOARD_SIZE], Colour side, int ep_sq)
 {
     Move opp_moves[256];
-    int count = generate_moves(temp_board, side, opp_moves);
+    int count = generate_moves(temp_board, side, opp_moves, ep_sq);
     int legal_count = 0;
 
     for (int i = 0; i < count; i++) {
@@ -165,7 +165,8 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score)
 
     // 2. Count opponent legal responses
     bool opp_in_check = is_in_check(temp_board, opp_side);
-    int opp_legal_moves = count_legal_moves(temp_board, opp_side);
+    int cand_ep = (get_piece_type(m->piece) == PIECE_PAWN && abs(get_rank(m->to) - get_rank(m->from)) == 2) ? (m->from + m->to) / 2 : -1;
+    int opp_legal_moves = count_legal_moves(temp_board, opp_side, cand_ep);
 
     // -------------------------------------------------------------------
     // A. Checkmate (+100,000 Instant Win)

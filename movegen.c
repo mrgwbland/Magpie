@@ -130,7 +130,7 @@ bool is_in_check(const int brd[BOARD_SIZE], Colour side)
 }
 
 // Generate pseudo-legal moves for side_to_move
-int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
+int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[], int ep_sq)
 {
     int count = 0;
 
@@ -192,7 +192,7 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
                         } else {
                             add_move(moves, &count, from, cap_to, piece, victim, PIECE_NONE);
                         }
-                    } else if (cap_to == ep_square && ep_square != -1) {
+                    } else if (cap_to == ep_sq && ep_sq != -1) {
                         // En Passant Capture
                         int opp_pawn = (int)(opponent_of(side_to_move) | PIECE_PAWN);
                         add_move(moves, &count, from, cap_to, piece, opp_pawn, PIECE_NONE);
@@ -404,7 +404,7 @@ static inline bool is_aligned(int fr, int ff, int tr, int tf, int pin_dr, int pi
     return (move_dr * pin_df == move_df * pin_dr);
 }
 
-// Static Exchange Evaluation (SEE) with hard pin awareness
+// Static Exchange Evaluation (SEE) with hard pin awareness and en-passant support
 int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
 {
     int from = move.from;
@@ -413,12 +413,17 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
     int moving_piece = move.piece;
     Colour side = get_piece_colour(moving_piece);
 
-    // Initial victim value
-    int captured_type = get_piece_type(move.captured);
+    // Initial victim value (handling en passant captures where brd[to] == PIECE_NONE)
+    bool is_ep_capture = (get_piece_type(moving_piece) == PIECE_PAWN && get_file(from) != get_file(to) && brd[to] == PIECE_NONE);
+    int captured_type = is_ep_capture ? PIECE_PAWN : get_piece_type(move.captured);
     int initial_gain = PIECE_VALUES[captured_type];
     if (move.promotion != PIECE_NONE) {
         initial_gain += PIECE_VALUES[move.promotion] - PIECE_VALUES[PIECE_PAWN];
     }
+
+    // Double pawn push tracking for opponent en-passant responses
+    bool is_double_pawn_push = (get_piece_type(moving_piece) == PIECE_PAWN && abs(get_rank(to) - get_rank(from)) == 2);
+    int created_ep_sq = is_double_pawn_push ? (from + to) / 2 : -1;
 
     // Temporary board state for simulation
     int temp_board[BOARD_SIZE];
@@ -430,7 +435,7 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
     temp_board[to] = current_piece;
 
     // Handle En Passant capture on temp_board
-    if (get_piece_type(moving_piece) == PIECE_PAWN && get_file(from) != get_file(to) && brd[to] == PIECE_NONE) {
+    if (is_ep_capture) {
         int ep_captured_sq = make_square(get_rank(from), get_file(to));
         if (is_on_board(ep_captured_sq)) {
             temp_board[ep_captured_sq] = PIECE_NONE;
@@ -449,13 +454,15 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
 
     Colour curr_side = opponent_of(side);
 
-    int to_r = get_rank(to);
-    int to_f = get_file(to);
+    int target_sq = to;
 
     while (depth < 32) {
+        int to_r = get_rank(target_sq);
+        int to_f = get_file(target_sq);
         int least_val = 999999;
         int least_sq = -1;
         int least_piece = PIECE_NONE;
+        bool chosen_is_ep = false;
 
         const PinInfo *pins = (curr_side == COLOUR_WHITE) ? pins_white : pins_black;
 
@@ -480,6 +487,8 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
                 int pawn_dr = (curr_side == COLOUR_WHITE) ? -1 : 1;
                 if (to_r == sq_r + pawn_dr && (to_f == sq_f - 1 || to_f == sq_f + 1)) {
                     attacks = true;
+                } else if (is_double_pawn_push && depth == 1 && sq_r == get_rank(to) && (sq_f == get_file(to) - 1 || sq_f == get_file(to) + 1)) {
+                    attacks = true;
                 }
             } else if (pt == PIECE_KNIGHT) {
                 int dr = abs(to_r - sq_r);
@@ -531,6 +540,7 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
                     least_val = val;
                     least_sq = sq;
                     least_piece = p;
+                    chosen_is_ep = (is_double_pawn_push && depth == 1 && pt == PIECE_PAWN && sq_r == get_rank(to));
                 }
             }
         }
@@ -542,7 +552,13 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
 
         current_piece = least_piece;
         temp_board[least_sq] = PIECE_NONE;
-        temp_board[to] = current_piece;
+        if (chosen_is_ep) {
+            temp_board[to] = PIECE_NONE;
+            temp_board[created_ep_sq] = current_piece;
+            target_sq = created_ep_sq;
+        } else {
+            temp_board[target_sq] = current_piece;
+        }
 
         curr_side = opponent_of(curr_side);
     }
@@ -559,7 +575,7 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
 }
 
 // Evaluate maximum net material score opponent 'opp' can gain by capturing on target_sq
-int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp)
+int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp, int ep_sq)
 {
     int victim_piece = brd[target_sq];
     if (victim_piece == PIECE_NONE) return 0;
@@ -579,13 +595,17 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
 
     Colour curr_side = opp;
     int current_piece = victim_piece;
-    int to_r = get_rank(target_sq);
-    int to_f = get_file(target_sq);
+
+    int ep_pawn_sq = (ep_sq != -1) ? make_square(get_rank(ep_sq) + ((opp == COLOUR_WHITE) ? 1 : -1), get_file(ep_sq)) : -1;
+    int current_target = target_sq;
 
     while (depth < 32) {
+        int to_r = get_rank(current_target);
+        int to_f = get_file(current_target);
         int least_val = 999999;
         int least_sq = -1;
         int least_piece = PIECE_NONE;
+        bool chosen_is_ep = false;
 
         const PinInfo *pins = (curr_side == COLOUR_WHITE) ? pins_white : pins_black;
 
@@ -593,7 +613,7 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
             int p = temp_board[sq];
             if (p == PIECE_NONE || get_piece_colour(p) != curr_side) continue;
 
-            if (sq == target_sq) continue;
+            if (sq == current_target) continue;
 
             PieceType pt = get_piece_type(p);
             int sq_r = get_rank(sq);
@@ -610,6 +630,8 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
             if (pt == PIECE_PAWN) {
                 int pawn_dr = (curr_side == COLOUR_WHITE) ? -1 : 1;
                 if (to_r == sq_r + pawn_dr && (to_f == sq_f - 1 || to_f == sq_f + 1)) {
+                    attacks = true;
+                } else if (ep_sq != -1 && depth == 0 && target_sq == ep_pawn_sq && sq_r == get_rank(target_sq) && (sq_f == get_file(target_sq) - 1 || sq_f == get_file(target_sq) + 1)) {
                     attacks = true;
                 }
             } else if (pt == PIECE_KNIGHT) {
@@ -662,6 +684,7 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
                     least_val = val;
                     least_sq = sq;
                     least_piece = p;
+                    chosen_is_ep = (ep_sq != -1 && depth == 0 && target_sq == ep_pawn_sq && pt == PIECE_PAWN && sq_r == get_rank(target_sq));
                 }
             }
         }
@@ -673,7 +696,13 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
 
         current_piece = least_piece;
         temp_board[least_sq] = PIECE_NONE;
-        temp_board[target_sq] = current_piece;
+        if (chosen_is_ep) {
+            temp_board[target_sq] = PIECE_NONE;
+            temp_board[ep_sq] = current_piece;
+            current_target = ep_sq;
+        } else {
+            temp_board[current_target] = current_piece;
+        }
 
         curr_side = opponent_of(curr_side);
     }
@@ -692,7 +721,7 @@ int see_square_for_opponent(const int brd[BOARD_SIZE], int target_sq, Colour opp
 }
 
 // Compute total board material threat to friendly pieces of 'side', excluding except_sq and PIECE_KING
-int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int except_sq)
+int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int except_sq, int ep_sq)
 {
     Colour opp = opponent_of(side);
     int total_threat = 0;
@@ -702,9 +731,9 @@ int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int exc
 
         int p = brd[sq];
         if (p == PIECE_NONE || get_piece_colour(p) != side) continue;
-        if (get_piece_type(p) == PIECE_KING) continue; //Would inflate score using actualy "king value"
+        if (get_piece_type(p) == PIECE_KING) continue; //Would inflate score using actual "king value"
 
-        int opp_gain = see_square_for_opponent(brd, sq, opp);
+        int opp_gain = see_square_for_opponent(brd, sq, opp, ep_sq);
         if (opp_gain > 0) {
             total_threat += opp_gain;
         }
@@ -714,9 +743,9 @@ int evaluate_board_threat_except(const int brd[BOARD_SIZE], Colour side, int exc
 }
 
 // Compute total board material threat to all friendly pieces of 'side'
-int evaluate_board_threat(const int brd[BOARD_SIZE], Colour side)
+int evaluate_board_threat(const int brd[BOARD_SIZE], Colour side, int ep_sq)
 {
-    return evaluate_board_threat_except(brd, side, -1);
+    return evaluate_board_threat_except(brd, side, -1, ep_sq);
 }
 
 

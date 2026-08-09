@@ -89,7 +89,7 @@ static int parse_dataset_line(char *line, char **fen_out, DatasetMove moves[], i
 static void find_best_move(Colour side_to_move, char *best_uci)
 {
     Move moves[256];
-    int move_count = generate_moves(board, side_to_move, moves);
+    int move_count = generate_moves(board, side_to_move, moves, ep_square);
 
     int best_score = -999999;
     Move best_move = { .from = -1, .to = -1, .piece = PIECE_NONE,

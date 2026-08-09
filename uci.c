@@ -168,7 +168,7 @@ void run_uci(void)
                 side_to_move = setup_fen(fen_line);
 
                 Move moves[256];
-                int move_count = generate_moves(board, side_to_move, moves);
+                int move_count = generate_moves(board, side_to_move, moves, ep_square);
 
                 int best_score = -999999;
                 Move best_move = { .from = -1, .to = -1, .piece = PIECE_NONE,

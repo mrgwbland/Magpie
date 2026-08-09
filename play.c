@@ -227,8 +227,9 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     // =========================================================================
     // Note: Destination square m->to is excluded from resulting_friendly_threat
     // because exchange safety on m->to is already computed by SEE in Stage 4.
-    int initial_friendly_threat = evaluate_board_threat(brd, side);
-    int resulting_friendly_threat = evaluate_board_threat_except(temp_board, side, m->to);
+    int cand_ep = (get_piece_type(m->piece) == PIECE_PAWN && abs(get_rank(m->to) - get_rank(m->from)) == 2) ? (m->from + m->to) / 2 : -1;
+    int initial_friendly_threat = evaluate_board_threat(brd, side, ep_square);
+    int resulting_friendly_threat = evaluate_board_threat_except(temp_board, side, m->to, cand_ep);
     int threat_reduction = initial_friendly_threat - resulting_friendly_threat;
 
     // =========================================================================
@@ -240,8 +241,8 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     // STAGE 5: Offensive Threat Evaluation (Creating New Enemy Threats) - this stage gives an inherent knowledge of forks
     // =========================================================================
     // Material value of enemy pieces threatened after move minus before move
-    int initial_enemy_threat = evaluate_board_threat(brd, opp);
-    int resulting_enemy_threat = evaluate_board_threat(temp_board, opp);
+    int initial_enemy_threat = evaluate_board_threat(brd, opp, ep_square);
+    int resulting_enemy_threat = evaluate_board_threat(temp_board, opp, cand_ep);
     int offensive_threat_diff = resulting_enemy_threat - initial_enemy_threat;
 
     // Low-magnitude offensive bonus applied on top of positional PST scoring (1/10th of material threat)
@@ -293,7 +294,7 @@ void make_engine_move(Colour *side_to_move)
 {
     long start_time = GetTickCount();
     Move moves[256];
-    int move_count = generate_moves(board, *side_to_move, moves);
+    int move_count = generate_moves(board, *side_to_move, moves, ep_square);
 
     int best_score = -999999;
     Move best_move = { .from = -1, .to = -1, .piece = PIECE_NONE, .captured = PIECE_NONE, .promotion = PIECE_NONE };
@@ -480,7 +481,7 @@ int save_pst_to_file(const char *path)
 void tune_evaluate_position(Colour side_to_move)
 {
     Move moves[256];
-    int move_count = generate_moves(board, side_to_move, moves);
+    int move_count = generate_moves(board, side_to_move, moves, ep_square);
 
     for (int i = 0; i < move_count; i++) {
         Move m = moves[i];

@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Initialize terminal state (for zobrist etc.) */
+    /* Initialise terminal state (for zobrist etc.) */
     init_terminal();
 
     /* Open dataset */

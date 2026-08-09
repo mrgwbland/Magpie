@@ -128,11 +128,16 @@ void push_position_history(const int brd[BOARD_SIZE], Colour side, unsigned int 
 void update_halfmove_clock(const Move *m);
 bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score);
 
+// Maximum non-pawn material (2 Knights, 2 Bishops, 2 Rooks, 1 Queen per side = 6480)
+#define MAX_NON_PAWN_MATERIAL 6480
+
 // play.c
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m);
 void make_engine_move(Colour *side_to_move);
 int load_pst_from_file(const char *path);
+int save_pst_to_file(const char *path);
 void tune_evaluate_position(Colour side_to_move);
+int get_board_non_pawn_material(const int brd[BOARD_SIZE]);
 
 // uci.c
 void apply_move_string(const char *move_str, Colour *side_to_move);

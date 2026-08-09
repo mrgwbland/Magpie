@@ -12,8 +12,24 @@
 #  define GetTickCount get_tick_count_ms
 #endif
 
-// Horizontally mirrored 32-element Piece-Square Tables (PST) for each piece type
-static int PST[7][32] = {
+// Helper function to calculate total non-pawn material on the board
+int get_board_non_pawn_material(const int brd[BOARD_SIZE])
+{
+    int npm = 0;
+    for (int i = 0; i < BOARD_SIZE; i++) {
+        int piece = brd[i];
+        if (piece == PIECE_NONE) continue;
+        PieceType type = get_piece_type(piece);
+        if (type == PIECE_KNIGHT || type == PIECE_BISHOP ||
+            type == PIECE_ROOK || type == PIECE_QUEEN) {
+            npm += PIECE_VALUES[type];
+        }
+    }
+    return npm;
+}
+
+// Horizontally mirrored 32-element Middlegame Piece-Square Tables (PST_MG) for each piece type
+static int PST_MG[7][32] = {
     [PIECE_NONE] = {
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
@@ -80,12 +96,88 @@ static int PST[7][32] = {
     }
 };
 
-static inline int get_pst_val(PieceType type, int sq)
+// Horizontally mirrored 32-element Endgame Piece-Square Tables (PST_EG) for each piece type
+static int PST_EG[7][32] = {
+    [PIECE_NONE] = {
+        0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
+    },
+    [PIECE_PAWN] = {
+        0, 0, 0, 0,
+        20, 22, 25, 28,
+        15, 18, 20, 22,
+        10, 12, 14, 16,
+        6, 8, 10, 12,
+        4, 6, 8, 10,
+        2, 4, 6, 8,
+        0, 0, 0, 0
+    },
+    [PIECE_KING] = {
+        0, 2, 4, 6,
+        2, 8, 10, 12,
+        6, 12, 16, 18,
+        8, 14, 18, 20,
+        8, 14, 18, 20,
+        6, 12, 16, 18,
+        2, 8, 10, 12,
+        0, 2, 4, 6
+    },
+    [PIECE_KNIGHT] = {
+        0, 2, 4, 6,
+        2, 8, 10, 12,
+        6, 12, 16, 18,
+        8, 14, 18, 20,
+        8, 14, 18, 20,
+        6, 12, 16, 18,
+        2, 8, 10, 12,
+        0, 2, 4, 6
+    },
+    [PIECE_BISHOP] = {
+        0, 2, 4, 6,
+        2, 8, 10, 12,
+        6, 12, 16, 18,
+        8, 14, 18, 20,
+        8, 14, 18, 20,
+        6, 12, 16, 18,
+        2, 8, 10, 12,
+        0, 2, 4, 6
+    },
+    [PIECE_ROOK] = {
+        0, 2, 4, 6,
+        2, 8, 10, 12,
+        6, 12, 16, 18,
+        8, 14, 18, 20,
+        8, 14, 18, 20,
+        6, 12, 16, 18,
+        2, 8, 10, 12,
+        0, 2, 4, 6
+    },
+    [PIECE_QUEEN] = {
+        0, 2, 4, 6,
+        2, 8, 10, 12,
+        6, 12, 16, 18,
+        8, 14, 18, 20,
+        8, 14, 18, 20,
+        6, 12, 16, 18,
+        2, 8, 10, 12,
+        0, 2, 4, 6
+    }
+};
+
+static inline int get_pst_val(PieceType type, int sq, int npm)
 {
     int r = sq / 8;
     int f = sq % 8;
     if (f >= 4) f = 7 - f;
-    return PST[type][r * 4 + f];
+    int idx = r * 4 + f;
+
+    if (npm > MAX_NON_PAWN_MATERIAL) npm = MAX_NON_PAWN_MATERIAL;
+    if (npm < 0) npm = 0;
+
+    int mg_val = PST_MG[type][idx];
+    int eg_val = PST_EG[type][idx];
+
+    return (mg_val * npm + eg_val * (MAX_NON_PAWN_MATERIAL - npm)) / MAX_NON_PAWN_MATERIAL;
 }
 
 // Evaluate a move
@@ -152,17 +244,18 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     // =========================================================================
     PieceType type = get_piece_type(m->piece);
     int pst_diff = 0;
+    int npm = get_board_non_pawn_material(brd);
 
     if (type == PIECE_KING && abs(m->to - m->from) == 2) {
         // Dual PST scoring for Castling moves
-        int king_pst_diff = get_pst_val(PIECE_KING, m->to) - get_pst_val(PIECE_KING, m->from);
+        int king_pst_diff = get_pst_val(PIECE_KING, m->to, npm) - get_pst_val(PIECE_KING, m->from, npm);
         int rook_from = (m->to > m->from) ? (m->to + 1) : (m->to - 2);
         int rook_to   = (m->to > m->from) ? (m->from + 1) : (m->from - 1);
-        int rook_pst_diff = get_pst_val(PIECE_ROOK, rook_to) - get_pst_val(PIECE_ROOK, rook_from);
+        int rook_pst_diff = get_pst_val(PIECE_ROOK, rook_to, npm) - get_pst_val(PIECE_ROOK, rook_from, npm);
         pst_diff = king_pst_diff + rook_pst_diff + 50; // includes +50 castling bonus
     } else {
-        int previous_pst_val = get_pst_val(type, m->from);
-        int new_pst_val = get_pst_val(type, m->to);
+        int previous_pst_val = get_pst_val(type, m->from, npm);
+        int new_pst_val = get_pst_val(type, m->to, npm);
         pst_diff = new_pst_val - previous_pst_val;
     }
 
@@ -288,7 +381,9 @@ void make_engine_move(Colour *side_to_move)
 }
 
 // Load PST values from a text file
-// File format: 7 lines of 32 space-separated integers (one line per piece type, PIECE_NONE..PIECE_QUEEN)
+// File format: 14 lines of 32 space-separated integers
+// (7 lines for MG PSTs, PIECE_NONE..PIECE_QUEEN, followed by 7 lines for EG PSTs)
+// Fallback: If only 7 lines are present, EG PSTs will be populated from MG PSTs.
 int load_pst_from_file(const char *path)
 {
     FILE *f = fopen(path, "r");
@@ -296,10 +391,51 @@ int load_pst_from_file(const char *path)
 
     for (int piece = 0; piece < 7; piece++) {
         for (int i = 0; i < 32; i++) {
-            if (fscanf(f, "%d", &PST[piece][i]) != 1) {
+            if (fscanf(f, "%d", &PST_MG[piece][i]) != 1) {
                 fclose(f);
                 return -1;
             }
+        }
+    }
+
+    bool eg_loaded = true;
+    for (int piece = 0; piece < 7; piece++) {
+        for (int i = 0; i < 32; i++) {
+            if (fscanf(f, "%d", &PST_EG[piece][i]) != 1) {
+                eg_loaded = false;
+                break;
+            }
+        }
+        if (!eg_loaded) break;
+    }
+
+    if (!eg_loaded) {
+        for (int piece = 0; piece < 7; piece++) {
+            for (int i = 0; i < 32; i++) {
+                PST_EG[piece][i] = PST_MG[piece][i];
+            }
+        }
+    }
+
+    fclose(f);
+    return 0;
+}
+
+// Save PST values to a text file (14 lines of 32 space-separated integers: 7 MG lines, 7 EG lines)
+int save_pst_to_file(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) return -1;
+
+    for (int piece = 0; piece < 7; piece++) {
+        for (int i = 0; i < 32; i++) {
+            fprintf(f, "%d%s", PST_MG[piece][i], (i == 31) ? "\n" : " ");
+        }
+    }
+
+    for (int piece = 0; piece < 7; piece++) {
+        for (int i = 0; i < 32; i++) {
+            fprintf(f, "%d%s", PST_EG[piece][i], (i == 31) ? "\n" : " ");
         }
     }
 

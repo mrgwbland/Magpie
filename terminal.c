@@ -4,7 +4,7 @@
 static uint64_t zobrist_pieces[64][25];
 static uint64_t zobrist_side;
 static uint64_t zobrist_castling[16];
-static bool zobrist_initialized = false;
+static bool zobrist_initialised = false;
 
 // Position History & Halfmove Clock
 #define MAX_HISTORY 1024
@@ -20,10 +20,10 @@ static uint64_t rand64(void)
     return seed;
 }
 
-// Initialize Zobrist random keys
+// Initialise Zobrist random keys
 void init_terminal(void)
 {
-    if (zobrist_initialized) return;
+    if (zobrist_initialised) return;
 
     for (int sq = 0; sq < 64; sq++) {
         for (int p = 0; p < 25; p++) {
@@ -35,7 +35,7 @@ void init_terminal(void)
         zobrist_castling[c] = rand64();
     }
 
-    zobrist_initialized = true;
+    zobrist_initialised = true;
 }
 
 // Compute 64-bit Zobrist Hash of a position

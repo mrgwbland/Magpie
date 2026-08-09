@@ -136,6 +136,16 @@ void run_uci(void)
             }
             fflush(stdout);
         }
+        else if (strncmp(line, "savepst ", 8) == 0) {
+            const char *path = line + 8;
+            while (*path == ' ') path++;
+            if (save_pst_to_file(path) == 0) {
+                printf("info string PST saved to %s\n", path);
+            } else {
+                printf("info string ERROR: Failed to save PST to %s\n", path);
+            }
+            fflush(stdout);
+        }
         else if (strcmp(line, "tunebatch") == 0) {
             // High-throughput batch mode for tuning:
             // Reads FEN lines from stdin, outputs best move for each.

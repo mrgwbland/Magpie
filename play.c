@@ -214,6 +214,14 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
         }
     }
 
+    // Handle En Passant capture on temp_board
+    if (get_piece_type(m->piece) == PIECE_PAWN && get_file(m->from) != get_file(m->to) && brd[m->to] == PIECE_NONE) {
+        int ep_captured_sq = make_square(get_rank(m->from), get_file(m->to));
+        if (is_on_board(ep_captured_sq)) {
+            temp_board[ep_captured_sq] = PIECE_NONE;
+        }
+    }
+
     // =========================================================================
     // STAGE 3: Defensive Threat Evaluation (Saving Friendly Pieces)
     // =========================================================================
@@ -318,6 +326,14 @@ void make_engine_move(Colour *side_to_move)
             }
         }
 
+        // Also handle En Passant capture on temp_board
+        if (get_piece_type(m.piece) == PIECE_PAWN && get_file(m.from) != get_file(m.to) && board[m.to] == PIECE_NONE) {
+            int ep_captured_sq = make_square(get_rank(m.from), get_file(m.to));
+            if (is_on_board(ep_captured_sq)) {
+                temp_board[ep_captured_sq] = PIECE_NONE;
+            }
+        }
+
         // 2. Reject move if it leaves player's King in check
         if (is_in_check(temp_board, *side_to_move)) {
             continue;
@@ -338,6 +354,14 @@ void make_engine_move(Colour *side_to_move)
 
     // Output UCI bestmove
     if (found_legal_move && best_move.from != -1 && best_move.to != -1) {
+        // Handle En Passant capture on main board before overwriting destination
+        if (get_piece_type(best_move.piece) == PIECE_PAWN && get_file(best_move.from) != get_file(best_move.to) && board[best_move.to] == PIECE_NONE) {
+            int ep_captured_sq = make_square(get_rank(best_move.from), get_file(best_move.to));
+            if (is_on_board(ep_captured_sq)) {
+                board[ep_captured_sq] = PIECE_NONE;
+            }
+        }
+
         // Execute best move on main board
         board[best_move.from] = PIECE_NONE;
         int placed_piece = best_move.piece;
@@ -355,6 +379,13 @@ void make_engine_move(Colour *side_to_move)
                 board[best_move.from - 1] = board[best_move.to - 2];
                 board[best_move.to - 2] = PIECE_NONE;
             }
+        }
+
+        // Update ep_square state
+        if (get_piece_type(best_move.piece) == PIECE_PAWN && abs(get_rank(best_move.to) - get_rank(best_move.from)) == 2) {
+            ep_square = (best_move.from + best_move.to) / 2;
+        } else {
+            ep_square = -1;
         }
 
         update_castling_rights(best_move.from, best_move.to);

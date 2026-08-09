@@ -175,7 +175,7 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
                 }
             }
 
-            // Pawn Captures
+            // Pawn Captures (Standard and En Passant)
             int cap_dfs[2] = { -1, 1 };
             for (int i = 0; i < 2; i++) {
                 int cap_f = f + cap_dfs[i];
@@ -192,6 +192,10 @@ int generate_moves(const int brd[BOARD_SIZE], Colour side_to_move, Move moves[])
                         } else {
                             add_move(moves, &count, from, cap_to, piece, victim, PIECE_NONE);
                         }
+                    } else if (cap_to == ep_square && ep_square != -1) {
+                        // En Passant Capture
+                        int opp_pawn = (int)(opponent_of(side_to_move) | PIECE_PAWN);
+                        add_move(moves, &count, from, cap_to, piece, opp_pawn, PIECE_NONE);
                     }
                 }
             }
@@ -434,6 +438,14 @@ int static_exchange_evaluation(const int brd[BOARD_SIZE], Move move)
     int current_piece = (move.promotion != PIECE_NONE) ? (int)(side | move.promotion) : moving_piece;
     temp_board[from] = PIECE_NONE;
     temp_board[to] = current_piece;
+
+    // Handle En Passant capture on temp_board
+    if (get_piece_type(moving_piece) == PIECE_PAWN && get_file(from) != get_file(to) && brd[to] == PIECE_NONE) {
+        int ep_captured_sq = make_square(get_rank(from), get_file(to));
+        if (is_on_board(ep_captured_sq)) {
+            temp_board[ep_captured_sq] = PIECE_NONE;
+        }
+    }
 
     Colour curr_side = opponent_of(side);
 

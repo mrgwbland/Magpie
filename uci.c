@@ -57,6 +57,14 @@ void apply_move_string(const char *move_str, Colour *side_to_move)
     Move m_executed = { .from = from, .to = to, .piece = piece, .captured = board[to], .promotion = (strlen(move_str) >= 5) ? PIECE_QUEEN : PIECE_NONE };
     update_castling_rights(from, to);
     update_halfmove_clock(&m_executed);
+
+    // Update ep_square state
+    if (type == PIECE_PAWN && abs(get_rank(to) - get_rank(from)) == 2) {
+        ep_square = (from + to) / 2;
+    } else {
+        ep_square = -1;
+    }
+
     push_position_history(board, *side_to_move, castling_rights);
 
     // Toggle active player

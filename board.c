@@ -14,12 +14,14 @@ const int PIECE_VALUES[] = {
 // Global 64-square chess board & castling rights
 int board[BOARD_SIZE];
 unsigned int castling_rights = 0;
+int ep_square = -1;
 
 // Resets board to all empty squares
 void init_board(void)
 {
     memset(board, 0, sizeof(board));
     castling_rights = 0;
+    ep_square = -1;
 }
 
 // Update castling rights when pieces move or are captured
@@ -119,6 +121,14 @@ Colour setup_fen(const char *fen)
         if (*ptr == 'k') castling_rights |= CASTLE_BK;
         if (*ptr == 'q') castling_rights |= CASTLE_BQ;
         ptr++;
+    }
+
+    // 4. Parse en-passant target square
+    while (*ptr == ' ') ptr++;
+    if (*ptr && *ptr != '-') {
+        ep_square = algebraic_to_square(ptr);
+    } else {
+        ep_square = -1;
     }
 
     clear_terminal_history();

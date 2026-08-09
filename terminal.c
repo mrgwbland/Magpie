@@ -113,6 +113,14 @@ static int count_legal_moves(const int temp_board[BOARD_SIZE], Colour side)
             }
         }
 
+        // Handle En Passant capture on temp_board2
+        if (get_piece_type(m.piece) == PIECE_PAWN && get_file(m.from) != get_file(m.to) && temp_board[m.to] == PIECE_NONE) {
+            int ep_captured_sq = make_square(get_rank(m.from), get_file(m.to));
+            if (is_on_board(ep_captured_sq)) {
+                temp_board2[ep_captured_sq] = PIECE_NONE;
+            }
+        }
+
         if (!is_in_check(temp_board2, side)) {
             legal_count++;
             break; // We only need to know if at least 1 legal move exists
@@ -144,6 +152,14 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score)
         } else if (m->from - m->to == 2) {
             temp_board[m->from - 1] = temp_board[m->to - 2];
             temp_board[m->to - 2] = PIECE_NONE;
+        }
+    }
+
+    // Handle En Passant capture on temp_board
+    if (get_piece_type(m->piece) == PIECE_PAWN && get_file(m->from) != get_file(m->to) && brd[m->to] == PIECE_NONE) {
+        int ep_captured_sq = make_square(get_rank(m->from), get_file(m->to));
+        if (is_on_board(ep_captured_sq)) {
+            temp_board[ep_captured_sq] = PIECE_NONE;
         }
     }
 

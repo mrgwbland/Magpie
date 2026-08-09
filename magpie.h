@@ -47,6 +47,7 @@ extern const int PIECE_VALUES[];
 #define CASTLE_BQ 8
 
 extern unsigned int castling_rights;
+extern int ep_square;
 
 // Board state array (64-element representation)
 extern int board[BOARD_SIZE];

@@ -133,6 +133,7 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score);
 #define MAX_NON_PAWN_MATERIAL 6480
 
 // play.c
+int calculate_piece_mobility(const int brd[BOARD_SIZE], int square, PieceType type, Colour side);
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m);
 void make_engine_move(Colour *side_to_move);
 int load_pst_from_file(const char *path);

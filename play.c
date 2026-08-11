@@ -182,6 +182,87 @@ static inline int get_pst_val(PieceType type, int sq, int npm)
     return (mg_val * npm + eg_val * (MAX_NON_PAWN_MATERIAL - npm)) / MAX_NON_PAWN_MATERIAL;
 }
 
+// Calculate mobility (accessible move destinations) for Rooks, Bishops, Knights, and Queens
+int calculate_piece_mobility(const int brd[BOARD_SIZE], int square, PieceType type, Colour side)
+{
+    if (!is_on_board(square)) return 0;
+    if (type != PIECE_KNIGHT && type != PIECE_BISHOP && type != PIECE_ROOK && type != PIECE_QUEEN) {
+        return 0;
+    }
+
+    int r = get_rank(square);
+    int f = get_file(square);
+    int mobility = 0;
+
+    // 1. Knight mobility
+    if (type == PIECE_KNIGHT) {
+        static const int dr[8] = {-2, -2, -1, -1, 1, 1, 2, 2};
+        static const int df[8] = {-1, 1, -2, 2, -2, 2, -1, 1};
+        for (int i = 0; i < 8; i++) {
+            int nr = r + dr[i];
+            int nf = f + df[i];
+            if (nr >= 0 && nr < 8 && nf >= 0 && nf < 8) {
+                int target_sq = make_square(nr, nf);
+                int p = brd[target_sq];
+                if (p == PIECE_NONE || get_piece_colour(p) != side) {
+                    mobility++;
+                }
+            }
+        }
+        return mobility;
+    }
+
+    // 2. Diagonal directions (Bishop & Queen)
+    if (type == PIECE_BISHOP || type == PIECE_QUEEN) {
+        static const int dr_diag[4] = {-1, -1, 1, 1};
+        static const int df_diag[4] = {-1, 1, -1, 1};
+        for (int i = 0; i < 4; i++) {
+            int nr = r + dr_diag[i];
+            int nf = f + df_diag[i];
+            while (nr >= 0 && nr < 8 && nf >= 0 && nf < 8) {
+                int target_sq = make_square(nr, nf);
+                int p = brd[target_sq];
+                if (p == PIECE_NONE) {
+                    mobility++;
+                } else {
+                    if (get_piece_colour(p) != side) {
+                        mobility++; // Can capture enemy piece
+                    }
+                    break; // Blocked by piece
+                }
+                nr += dr_diag[i];
+                nf += df_diag[i];
+            }
+        }
+    }
+
+    // 3. Orthogonal directions (Rook & Queen)
+    if (type == PIECE_ROOK || type == PIECE_QUEEN) {
+        static const int dr_ortho[4] = {-1, 1, 0, 0};
+        static const int df_ortho[4] = {0, 0, -1, 1};
+        for (int i = 0; i < 4; i++) {
+            int nr = r + dr_ortho[i];
+            int nf = f + df_ortho[i];
+            while (nr >= 0 && nr < 8 && nf >= 0 && nf < 8) {
+                int target_sq = make_square(nr, nf);
+                int p = brd[target_sq];
+                if (p == PIECE_NONE) {
+                    mobility++;
+                } else {
+                    if (get_piece_colour(p) != side) {
+                        mobility++; // Can capture enemy piece
+                    }
+                    break; // Blocked by piece
+                }
+                nr += dr_ortho[i];
+                nf += df_ortho[i];
+            }
+        }
+    }
+
+    return mobility;
+}
+
 // Evaluate a move
 int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
 {
@@ -251,7 +332,7 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     int offensive_bonus = offensive_threat_diff / 10;
 
     // =========================================================================
-    // STAGE 6: Positional Piece-Square Table (PST) Delta
+    // STAGE 6: Positional Piece-Square Table (PST) Delta & Piece Mobility
     // =========================================================================
     PieceType type = get_piece_type(m->piece);
     int pst_diff = 0;
@@ -270,11 +351,18 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
         pst_diff = new_pst_val - previous_pst_val;
     }
 
+    int mobility_bonus = 0;
+    if (type == PIECE_KNIGHT || type == PIECE_BISHOP || type == PIECE_ROOK || type == PIECE_QUEEN) {
+        int current_mobility = calculate_piece_mobility(brd, m->from, type, side);
+        int new_mobility     = calculate_piece_mobility(temp_board, m->to, type, side);
+        mobility_bonus       = new_mobility - current_mobility;
+    }
+
     // =========================================================================
     // STAGE 7: Final Move Scoring & Tier Categorization
     // =========================================================================
     bool is_capture = (m->captured != PIECE_NONE);
-    int positional_tactical_bonus = pst_diff + offensive_bonus;
+    int positional_tactical_bonus = pst_diff + offensive_bonus + mobility_bonus;
 
     if (see_score >= 0) {
         // Category 1: Safe Moves (Blend SEE score and defensive threat reduction into Expected Value)

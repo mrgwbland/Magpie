@@ -130,6 +130,38 @@ static int count_legal_moves(const int temp_board[BOARD_SIZE], Colour side, int 
     return legal_count;
 }
 
+// Helper function to evaluate draw score based on material balance and draw willingness factor
+static int evaluate_draw_score(const int temp_board[BOARD_SIZE], Colour my_side)
+{
+    Colour opp_side = opponent_of(my_side);
+    int my_material = 0;
+    int opp_material = 0;
+
+    for (int sq = 0; sq < BOARD_SIZE; sq++) {
+        int piece = temp_board[sq];
+        if (piece == PIECE_NONE) continue;
+        PieceType type = get_piece_type(piece);
+        if (type == PIECE_KING) continue;
+
+        Colour c = get_piece_colour(piece);
+        if (c == my_side) {
+            my_material += PIECE_VALUES[type];
+        } else if (c == opp_side) {
+            opp_material += PIECE_VALUES[type];
+        }
+    }
+
+    int material_diff = my_material - opp_material;
+
+    // Draw willingness factor:
+    // Scale draw evaluation according to material balance:
+    // - Material even (material_diff == 0): draw score = 0 (evaluated normally)
+    // - Engine up material (material_diff > 0): draw score < 0 (draw is evaluated worse)
+    // - Engine down material (material_diff < 0): draw score > 0 (draw is evaluated better)
+    #define DRAW_WILLINGNESS_FACTOR 10
+    return -(material_diff * DRAW_WILLINGNESS_FACTOR);
+}
+
 // 1-Ply Terminal Checker: evaluates candidate move m for Mate, Stalemate, 3-Fold Repetition, and 50-Move Rule
 bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score)
 {
@@ -177,10 +209,10 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score)
     }
 
     // -------------------------------------------------------------------
-    // B. Stalemate (Draw score 0)
+    // B. Stalemate (Material-scaled draw score)
     // -------------------------------------------------------------------
     if (!opp_in_check && opp_legal_moves == 0) {
-        *out_score = 0;
+        *out_score = evaluate_draw_score(temp_board, my_side);
         return true;
     }
 
@@ -197,7 +229,7 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score)
     uint64_t cand_hash = compute_zobrist_hash(temp_board, opp_side, cand_castling);
 
     // -------------------------------------------------------------------
-    // C. Threefold Repetition
+    // C. Threefold Repetition (Material-scaled draw score)
     // -------------------------------------------------------------------
     int rep_count = 0;
     for (int i = 0; i < history_count; i++) {
@@ -206,16 +238,16 @@ bool is_terminal_move(const int brd[BOARD_SIZE], const Move *m, int *out_score)
         }
     }
     if (rep_count >= 2) {
-        *out_score = 0; // Draw
+        *out_score = evaluate_draw_score(temp_board, my_side);
         return true;
     }
 
     // -------------------------------------------------------------------
-    // D. 50-Move Rule
+    // D. 50-Move Rule (Material-scaled draw score)
     // -------------------------------------------------------------------
     int cand_halfmove = (m->captured != PIECE_NONE || get_piece_type(m->piece) == PIECE_PAWN) ? 0 : (halfmove_clock + 1);
     if (cand_halfmove >= 100) {
-        *out_score = 0; // Draw
+        *out_score = evaluate_draw_score(temp_board, my_side);
         return true;
     }
 

@@ -64,11 +64,9 @@ void apply_move_string(const char *move_str, Colour *side_to_move)
     } else {
         ep_square = -1;
     }
-
-    push_position_history(board, *side_to_move, castling_rights);
-
     // Toggle active player
-    *side_to_move = opponent_of(*side_to_move);
+    *side_to_move = opponent_of(*side_to_move);    
+    push_position_history(board, *side_to_move, castling_rights);
 }
 
 // Main UCI Command Processing Loop

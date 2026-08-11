@@ -393,7 +393,6 @@ void make_engine_move(Colour *side_to_move)
 
         update_castling_rights(best_move.from, best_move.to);
         update_halfmove_clock(&best_move);
-        push_position_history(board, *side_to_move, castling_rights);
 
         char from_str[4], to_str[4];
         square_to_algebraic(best_move.from, from_str);
@@ -407,6 +406,7 @@ void make_engine_move(Colour *side_to_move)
 
         printf("bestmove %s%s%s\n", from_str, to_str, promo_str);
         *side_to_move = opp;
+        push_position_history(board, *side_to_move, castling_rights);
     } else {
         printf("bestmove 0000\n");
     }

@@ -12,6 +12,21 @@
 #  define GetTickCount get_tick_count_ms
 #endif
 
+// Tunable non-PST evaluation parameters
+int CASTLING_BONUS = 53;
+int OFFENSIVE_THREAT_WEIGHT = 23;
+int EV_WEIGHT = 4;
+int RISK_WEIGHT = 10;
+int MOBILITY_WEIGHT[7] = {
+    [PIECE_NONE]   = 0,
+    [PIECE_PAWN]   = 0,
+    [PIECE_KING]   = 0,
+    [PIECE_KNIGHT] = 11,
+    [PIECE_BISHOP] = 2,
+    [PIECE_ROOK]   = 4,
+    [PIECE_QUEEN]  = 4
+};
+
 // Helper function to calculate total non-pawn material on the board
 int get_board_non_pawn_material(const int brd[BOARD_SIZE])
 {
@@ -36,64 +51,64 @@ static int PST_MG[7][32] = {
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
     },
     [PIECE_PAWN] = {
-          1,  -1,   4,   6,
-          5,   6,  17,  10,
-         11,  17,  16,  22,
-          9,  12,  15,  19,
-          4,  11,  18,  25,
-          5,   9,  14,  15,
-         -4,   9,   7,  11,
-          4,   1,   6,   7
+         -1,   1,   4,   6,
+          1,   5,  18,   8,
+          9,  18,  15,  24,
+         14,  10,  15,  20,
+          3,   8,  12,  26,
+          8,  12,  15,  17,
+         -4,   9,   5,  12,
+          3,   0,   4,   7
     },
     [PIECE_KING] = {
-         -2,   3,  -6,  -8,
-         -5,  -4,  -5, -15,
-        -10, -11, -15, -18,
-        -11, -17, -21, -21,
-         -8, -12, -20, -20,
-         -2,  -8, -14, -20,
-          1,  -4,  -2, -11,
-         -2,   3,  -8,  -4
+         -4,   4,  -7,  -7,
+         -2,  -3,  -2, -11,
+        -12,  -9, -16, -19,
+         -8, -17, -19, -22,
+         -6, -13, -22, -20,
+         -4, -10, -13, -18,
+          2,  -4,   0,  -9,
+         -5,   4,  -9,  -6
     },
     [PIECE_KNIGHT] = {
-         -1,  -7,   3,   2,
-          5,   5,  13,  10,
-          8,  11,  20,  18,
-         13,  17,  22,  24,
-         12,  15,  19,  23,
-          6,  12,  15,  16,
-          2,  10,  10,  10,
-          0,  -7,   0,   7
+          1, -10,   2,   1,
+          3,   4,  14,  10,
+          6,  10,  22,  17,
+         16,  17,  22,  27,
+         11,  15,  18,  22,
+          8,  10,  16,  17,
+          1,  10,  10,   9,
+         -3,  -7,  -1,   5
     },
     [PIECE_BISHOP] = {
-          0,   2,  -2,   7,
-          1,  12,   8,  13,
-          6,  13,  18,  15,
-          7,  13,  18,  23,
-          7,  11,  18,  18,
-          8,  18,  16,  13,
-          1,  13,  13,  10,
-         -1,   5,   0,   2
+          0,   4,  -6,  10,
+         -1,  15,  11,  14,
+          9,  13,  18,  17,
+          6,  11,  20,  25,
+          3,   9,  21,  18,
+          7,  22,  16,  15,
+          2,  15,  15,  12,
+          1,   5,  -5,   0
     },
     [PIECE_ROOK] = {
-         -1,   2,   9,  11,
-         -2,  10,  10,  14,
-          5,  13,  18,  17,
-          8,  19,  15,  15,
-         10,  14,  15,  18,
-          9,  14,  16,  13,
-         -1,  12,  11,  16,
-          0,   4,   6,  16
+          0,   5,   9,  12,
+         -2,   8,  12,  12,
+          4,  13,  18,  19,
+          7,  17,  15,  13,
+         10,  12,  13,  18,
+          9,  15,  16,  12,
+         -4,  15,  14,  20,
+          2,   4,   8,  21
     },
     [PIECE_QUEEN] = {
-          0,   5,   4,   8,
-          7,  10,  10,  15,
-          6,  14,  16,  18,
-         11,  15,  21,  18,
-          4,  12,  16,  18,
-          7,   9,  12,  15,
-          3,  12,  10,  12,
-          2,   2,   6,   9
+         -1,   5,   3,   8,
+          7,  12,  11,  16,
+          5,  12,  14,  20,
+         13,  15,  20,  14,
+          5,   9,  17,  15,
+          7,  10,  13,  12,
+          1,  11,   9,  15,
+          0,   1,   5,  12
     }
 };
 
@@ -104,64 +119,64 @@ static int PST_EG[7][32] = {
         0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
     },
     [PIECE_PAWN] = {
-          1,  -3,  -1,   5,
-         30,  31,  32,  38,
-         19,  19,  22,  24,
-         11,  12,  15,  14,
-          4,   6,   9,   2,
-         -4,   0,   2,   8,
-         -2,  -1,   3,  16,
-          2,  -3,  -2,  -1
+          2,  -4,   0,   7,
+         29,  33,  32,  42,
+         17,  18,  20,  23,
+          8,  10,   9,  10,
+          3,   5,   5,   7,
+         -2,   1,   2,  11,
+          1,   2,   4,  21,
+          3,  -2,   0,  -2
     },
     [PIECE_KING] = {
-         -8,   5,   4,   6,
-          5,  19,  23,  18,
-          6,  14,  16,  19,
-          7,  14,  13,  14,
-          4,  12,  16,  19,
-          0,  16,  19,  17,
-          5,  11,  15,  18,
-         -4,   1,   7,   5
+        -11,   2,   5,   3,
+          5,  18,  36,  21,
+          3,  13,  18,  19,
+          5,  15,  11,  15,
+          1,  11,  16,  17,
+          0,  16,  25,  20,
+          4,  16,  18,  21,
+         -4,   2,   6,   0
     },
     [PIECE_KNIGHT] = {
-          0,   5,   3,   4,
-         -2,  12,  10,   8,
-          7,  13,  17,  19,
-          9,  16,  18,  19,
-          7,  12,  19,  17,
-          5,  14,  13,  18,
-          4,   7,  10,   7,
-         -2,  -3,   1,   9
+          1,   6,   3,   6,
+         -2,  13,   8,  10,
+          7,  14,  14,  21,
+          8,  17,  16,  21,
+          6,  10,  21,  21,
+          4,  16,  11,  19,
+          6,   4,  12,   5,
+         -3,  -4,   2,   9
     },
     [PIECE_BISHOP] = {
-          0,   2,   6,   5,
-          3,   5,   6,  11,
-          5,  12,  15,  16,
-          8,  14,  15,  20,
-         12,  15,  17,  23,
-          5,   7,  14,  19,
-         -1,   7,  11,  14,
-          1,   1,   1,   7
+         -2,   1,   5,   5,
+          0,   5,   8,  11,
+          5,  13,  13,  15,
+          5,  16,  14,  23,
+         13,  15,  13,  32,
+          7,   8,  13,  17,
+         -1,   6,   9,  12,
+         -1,   0,   1,  10
     },
     [PIECE_ROOK] = {
-          0,   0,   6,  12,
-          1,  11,  11,  14,
-          8,  13,  16,  19,
-         13,  15,  18,  16,
-         10,  13,  17,  15,
-          4,  13,  13,  17,
-          1,  10,  10,  11,
-         -1,   4,   2,   7
+         -3,  -1,   8,   7,
+          0,  12,  11,  18,
+         11,  11,  16,  16,
+         12,  12,  14,  15,
+         11,  10,  17,  11,
+          4,  14,  12,  16,
+          1,  15,  14,  14,
+          1,   4,   1,  10
     },
     [PIECE_QUEEN] = {
-          3,   3,   4,   9,
-          4,  17,  16,  11,
-          6,  14,  14,  18,
-          9,  13,  22,  18,
-         10,   8,  19,  20,
-          9,  14,  18,  18,
-          3,   9,   8,  15,
-         -4,  -1,   2,   5
+          3,   2,   3,  11,
+          4,  18,  19,   9,
+          6,  16,  13,  17,
+          8,   9,  17,  11,
+         10,  11,  19,  17,
+          8,  15,  21,  15,
+          2,   9,   8,  14,
+         -7,   0,   2,   6
     }
 };
 
@@ -182,7 +197,7 @@ static inline int get_pst_val(PieceType type, int sq, int npm)
     return (mg_val * npm + eg_val * (MAX_NON_PAWN_MATERIAL - npm)) / MAX_NON_PAWN_MATERIAL;
 }
 
-// Calculate mobility (accessible move destinations) for Rooks, Bishops, Knights, and Queens
+// Calculate mobility (legal moves including captures) for Rooks, Bishops, Knights, and Queens
 int calculate_piece_mobility(const int brd[BOARD_SIZE], int square, PieceType type, Colour side)
 {
     if (!is_on_board(square)) return 0;
@@ -310,52 +325,64 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     // =========================================================================
     // Note: Destination square m->to is excluded from resulting_friendly_threat
     // because exchange safety on m->to is already computed by SEE in Stage 4.
+
+    // Check if the move is en passant
     int cand_ep = (get_piece_type(m->piece) == PIECE_PAWN && abs(get_rank(m->to) - get_rank(m->from)) == 2) ? (m->from + m->to) / 2 : -1;
+    // Attacks on our pieces
     int initial_friendly_threat = evaluate_board_threat(brd, side, ep_square);
+    // Attacks on our pieces after the move
     int resulting_friendly_threat = evaluate_board_threat_except(temp_board, side, m->to, cand_ep);
+    // The reduction in attacks on our pieces from this move
     int threat_reduction = initial_friendly_threat - resulting_friendly_threat;
 
     // =========================================================================
     // STAGE 4: Static Exchange Evaluation (SEE Target Square Safety & Material)
     // =========================================================================
+    // Is it safe to move to the destination square?
     int see_score = static_exchange_evaluation(brd, *m);
 
     // =========================================================================
     // STAGE 5: Offensive Threat Evaluation (Creating New Enemy Threats) - this stage gives an inherent knowledge of forks
     // =========================================================================
-    // Material value of enemy pieces threatened after move minus before move
+    // Material value of enemy pieces threatened before move
     int initial_enemy_threat = evaluate_board_threat(brd, opp, ep_square);
+    // Material value of enemy pieces threatened after move
     int resulting_enemy_threat = evaluate_board_threat(temp_board, opp, cand_ep);
+    // The increase in attacks on enemy pieces from this move
     int offensive_threat_diff = resulting_enemy_threat - initial_enemy_threat;
 
-    // Low-magnitude offensive bonus applied on top of positional PST scoring (1/10th of material threat)
-    int offensive_bonus = offensive_threat_diff / 10;
+    // Offensive bonus applied on top of positional PST scoring
+    int offensive_bonus = (offensive_threat_diff * OFFENSIVE_THREAT_WEIGHT) / 100;
 
     // =========================================================================
     // STAGE 6: Positional Piece-Square Table (PST) Delta & Piece Mobility
     // =========================================================================
+    // Acts as tiebreakers for the previous stages
     PieceType type = get_piece_type(m->piece);
     int pst_diff = 0;
     int npm = get_board_non_pawn_material(brd);
-
+    // Find difference in PST from previous square to destination square
     if (type == PIECE_KING && abs(m->to - m->from) == 2) {
         // Dual PST scoring for Castling moves
         int king_pst_diff = get_pst_val(PIECE_KING, m->to, npm) - get_pst_val(PIECE_KING, m->from, npm);
         int rook_from = (m->to > m->from) ? (m->to + 1) : (m->to - 2);
         int rook_to   = (m->to > m->from) ? (m->from + 1) : (m->from - 1);
         int rook_pst_diff = get_pst_val(PIECE_ROOK, rook_to, npm) - get_pst_val(PIECE_ROOK, rook_from, npm);
-        pst_diff = king_pst_diff + rook_pst_diff + 50; // includes +50 castling bonus
-    } else {
+        pst_diff = king_pst_diff + rook_pst_diff + CASTLING_BONUS; // includes castling bonus
+    }
+    // None-castling moves
+    else {
         int previous_pst_val = get_pst_val(type, m->from, npm);
         int new_pst_val = get_pst_val(type, m->to, npm);
         pst_diff = new_pst_val - previous_pst_val;
     }
 
+    // Calculate mobility difference for pieces other than pawns and kings
     int mobility_bonus = 0;
     if (type == PIECE_KNIGHT || type == PIECE_BISHOP || type == PIECE_ROOK || type == PIECE_QUEEN) {
         int current_mobility = calculate_piece_mobility(brd, m->from, type, side);
         int new_mobility     = calculate_piece_mobility(temp_board, m->to, type, side);
-        mobility_bonus       = new_mobility - current_mobility;
+        mobility_bonus       = (new_mobility - current_mobility) * MOBILITY_WEIGHT[type];
     }
 
     // =========================================================================
@@ -367,14 +394,14 @@ int evaluate_move(const int brd[BOARD_SIZE], const Move *m)
     if (see_score >= 0) {
         // Category 1: Safe Moves (Blend SEE score and defensive threat reduction into Expected Value)
         int ev_score = see_score + threat_reduction;
-        return 10000 + ev_score * 10 + positional_tactical_bonus;
+        return 10000 + ev_score * EV_WEIGHT + positional_tactical_bonus;
     } else {
         if (is_capture) {
             // Category 3: Losing Captures (placed strictly AFTER quiet moves)
-            return -20000 + (see_score + threat_reduction) * 10 + positional_tactical_bonus;
+            return -20000 + (see_score + threat_reduction) * RISK_WEIGHT + positional_tactical_bonus;
         } else {
             // Category 2: Unsafe Quiet Moves (moves into undefended attack)
-            return -10000 + (see_score + threat_reduction) * 10 + positional_tactical_bonus;
+            return -10000 + (see_score + threat_reduction) * RISK_WEIGHT + positional_tactical_bonus;
         }
     }
 }
@@ -622,9 +649,30 @@ void tune_evaluate_position(Colour side_to_move)
 }
 
 #ifdef TUNE_BUILD
-// Output all 384 tunable PST parameters as UCI spin options
+// Output non-PST parameters and 384 PST parameters as UCI spin options
 void print_uci_options(void)
 {
+    // Category 1: Material Values
+    printf("option name Val_Pawn type spin default %d min 50 max 200\n", PIECE_VALUES[PIECE_PAWN]);
+    printf("option name Val_Knight type spin default %d min 150 max 600\n", PIECE_VALUES[PIECE_KNIGHT]);
+    printf("option name Val_Bishop type spin default %d min 150 max 600\n", PIECE_VALUES[PIECE_BISHOP]);
+    printf("option name Val_Rook type spin default %d min 250 max 1000\n", PIECE_VALUES[PIECE_ROOK]);
+    printf("option name Val_Queen type spin default %d min 500 max 2000\n", PIECE_VALUES[PIECE_QUEEN]);
+
+    // Category 2: Positional & Tactical Heuristics
+    printf("option name Castling_Bonus type spin default %d min 0 max 200\n", CASTLING_BONUS);
+    printf("option name Offensive_Threat_Weight type spin default %d min 0 max 50\n", OFFENSIVE_THREAT_WEIGHT);
+
+    // Category 3: Risk Weights
+    printf("option name EV_Weight type spin default %d min 1 max 50\n", EV_WEIGHT);
+    printf("option name Risk_Weight type spin default %d min 1 max 50\n", RISK_WEIGHT);
+
+    // Per-Piece Mobility Bonuses
+    printf("option name Mobility_Knight type spin default %d min 0 max 20\n", MOBILITY_WEIGHT[PIECE_KNIGHT]);
+    printf("option name Mobility_Bishop type spin default %d min 0 max 20\n", MOBILITY_WEIGHT[PIECE_BISHOP]);
+    printf("option name Mobility_Rook type spin default %d min 0 max 20\n", MOBILITY_WEIGHT[PIECE_ROOK]);
+    printf("option name Mobility_Queen type spin default %d min 0 max 20\n", MOBILITY_WEIGHT[PIECE_QUEEN]);
+
     static const char *piece_names[] = {
         "", "Pawn", "King", "Knight", "Bishop", "Rook", "Queen"
     };
@@ -647,14 +695,29 @@ void print_uci_options(void)
     }
 }
 
-// Set a single PST parameter by UCI option name
+// Set a single parameter by UCI option name
 bool set_uci_option(const char *name, int value)
 {
+    if (!name) return false;
+
+    // Non-PST parameters
+    if (strcmp(name, "Val_Pawn") == 0)               { PIECE_VALUES[PIECE_PAWN] = value; return true; }
+    if (strcmp(name, "Val_Knight") == 0)             { PIECE_VALUES[PIECE_KNIGHT] = value; return true; }
+    if (strcmp(name, "Val_Bishop") == 0)             { PIECE_VALUES[PIECE_BISHOP] = value; return true; }
+    if (strcmp(name, "Val_Rook") == 0)               { PIECE_VALUES[PIECE_ROOK] = value; return true; }
+    if (strcmp(name, "Val_Queen") == 0)              { PIECE_VALUES[PIECE_QUEEN] = value; return true; }
+    if (strcmp(name, "Castling_Bonus") == 0)         { CASTLING_BONUS = value; return true; }
+    if (strcmp(name, "Offensive_Threat_Weight") == 0){ OFFENSIVE_THREAT_WEIGHT = value; return true; }
+    if (strcmp(name, "EV_Weight") == 0)               { EV_WEIGHT = value; return true; }
+    if (strcmp(name, "Risk_Weight") == 0)             { RISK_WEIGHT = value; return true; }
+    if (strcmp(name, "Mobility_Knight") == 0)         { MOBILITY_WEIGHT[PIECE_KNIGHT] = value; return true; }
+    if (strcmp(name, "Mobility_Bishop") == 0)         { MOBILITY_WEIGHT[PIECE_BISHOP] = value; return true; }
+    if (strcmp(name, "Mobility_Rook") == 0)           { MOBILITY_WEIGHT[PIECE_ROOK] = value; return true; }
+    if (strcmp(name, "Mobility_Queen") == 0)          { MOBILITY_WEIGHT[PIECE_QUEEN] = value; return true; }
+
     static const char *piece_names[] = {
         "", "Pawn", "King", "Knight", "Bishop", "Rook", "Queen"
     };
-
-    if (!name) return false;
 
     for (int piece = 1; piece <= 6; piece++) {
         for (int phase = 0; phase < 2; phase++) {

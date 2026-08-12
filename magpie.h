@@ -38,7 +38,14 @@ typedef enum {
 } PieceType;
 
 // Piece values used in material evaluation
-extern const int PIECE_VALUES[];
+extern int PIECE_VALUES[];
+
+// Tunable evaluation parameters
+extern int CASTLING_BONUS;
+extern int OFFENSIVE_THREAT_WEIGHT;
+extern int EV_WEIGHT;
+extern int RISK_WEIGHT;
+extern int MOBILITY_WEIGHT[7];
 
 // Castling Rights Flags
 #define CASTLE_WK 1

@@ -1,15 +1,16 @@
 #include "magpie.h"
 
 // Piece values for material evaluation
-const int PIECE_VALUES[] = {
+int PIECE_VALUES[] = {
     [PIECE_NONE]   = 0,
-    [PIECE_PAWN]   = 100,
+    [PIECE_PAWN]   = 111,
     [PIECE_KING]   = 20000,
-    [PIECE_KNIGHT] = 300,
-    [PIECE_BISHOP] = 320,
-    [PIECE_ROOK]   = 500,
-    [PIECE_QUEEN]  = 1000
+    [PIECE_KNIGHT] = 303,
+    [PIECE_BISHOP] = 316,
+    [PIECE_ROOK]   = 503,
+    [PIECE_QUEEN]  = 1004
 };
+
 
 // Global 64-square chess board & castling rights
 int board[BOARD_SIZE];
